@@ -21,6 +21,7 @@ import platformDemo from "@/plugins/platformDemo/src/platformDemo.plugin.js";
 import SnowflakesPlugin from "@/plugins/snowflakes/src/snowflakes.plugin.js";
 import SplitPlugin from "@/plugins/split/src/split.plugin.js";
 import SvgExtractorPlugin from "@/plugins/svgExtractor/src/svgExtractor.plugin.js";
+import ReflectPlugin from "@/plugins/reflect/src/reflect.plugin.js";
 
 export default {
   data() {
@@ -54,17 +55,18 @@ export default {
 
     // bimdataViewer.registerPlugin(backgroundColor);
     bimdataViewer.registerPlugin(BimObjectPlugin);
-    bimdataViewer.registerPlugin(bsdd);
-    bimdataViewer.registerPlugin(ChristmasSleighPlugin);
-    bimdataViewer.registerPlugin(excelExportPlugin);
-    bimdataViewer.registerPlugin(GltfExtractorPlugin);
-    bimdataViewer.registerPlugin(HolusionPlugin);
-    bimdataViewer.registerPlugin(iotPlugin);
-    bimdataViewer.registerPlugin(kroqiBcfService);
-    bimdataViewer.registerPlugin(platformDemo);
-    bimdataViewer.registerPlugin(SnowflakesPlugin);
-    bimdataViewer.registerPlugin(SplitPlugin);
-    bimdataViewer.registerPlugin(SvgExtractorPlugin);
+    // bimdataViewer.registerPlugin(bsdd);
+    // bimdataViewer.registerPlugin(ChristmasSleighPlugin);
+    // bimdataViewer.registerPlugin(excelExportPlugin);
+    // bimdataViewer.registerPlugin(GltfExtractorPlugin);
+    // bimdataViewer.registerPlugin(HolusionPlugin);
+    // bimdataViewer.registerPlugin(iotPlugin);
+    // bimdataViewer.registerPlugin(kroqiBcfService);
+    // bimdataViewer.registerPlugin(platformDemo);
+    // bimdataViewer.registerPlugin(SnowflakesPlugin);
+    // bimdataViewer.registerPlugin(SplitPlugin);
+    // bimdataViewer.registerPlugin(SvgExtractorPlugin);
+    bimdataViewer.registerPlugin(ReflectPlugin);
 
 
     bimdataViewer.mount(`#${this.viewerId}`);

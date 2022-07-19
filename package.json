@@ -16,9 +16,10 @@
     }
   },
   "dependencies": {
-    "@bimdata/bimdata-api-client": "^6.21.1",
+    "@bimdata/bimdata-api-client": "^5.0.0",
     "@bimdata/viewer": "^1.9.0-rc.110",
     "oidc-client": "^1.11.5",
+    "querystring-es3": "^0.2.1",
     "vue": "^2.6.14",
     "vue-i18n": "^8.26.7",
     "vue-router": "^3.5.3",
@@ -27,7 +28,7 @@
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.16.5",
-    "@vue/cli-plugin-eslint": "^5.0.0-rc.1",
+    "@vue/cli-plugin-eslint": "^5.0.8",
     "@vue/cli-plugin-router": "^5.0.0-rc.1",
     "@vue/cli-plugin-vuex": "^5.0.0-rc.1",
     "@vue/cli-service": "^5.0.0-rc.1",
@@ -45,7 +46,7 @@
     "nunjucks": "^3.2.3",
     "prettier": "^2.5.1",
     "pretty-quick": "^3.1.2",
-    "sass": "^1.45.0",
+    "sass": "^1.5.1",
     "sass-loader": "^12.4.0",
     "vue-template-compiler": "^2.6.14"
   }

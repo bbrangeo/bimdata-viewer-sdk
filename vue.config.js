@@ -1,4 +1,9 @@
 module.exports = {
+configureWebpack: {
+    resolve: {
+      fallback: { "querystring": require.resolve("querystring-es3") }
+    }
+  },
   runtimeCompiler: true,
   chainWebpack: config => {
     config.module.rules.delete('svg');
