@@ -6,7 +6,6 @@
       class="bimdata-search-bar__radius bimdata-search-bar__primary"
       v-model="queryString"
       @enter="handleClick"
-      @click="handleClick"
       :clear="true"
       autofocus
       @clear="clear"
@@ -73,6 +72,7 @@ import {
   BIMDataSearch,
 } from "@bimdata/design-system";
 // import AddruleReflect from "@/plugins/reflect/src/rules/AddruleReflect";
+import _ from "lodash";
 
 export default {
   name: "Rules",
@@ -100,6 +100,13 @@ export default {
   },
   data() {
     return {
+      uuids: [],
+      reflectElementUuids: null,
+      result_run_rule: null,
+      color_white: "#FFFFFF",
+      color_black: "#000000",
+      color_tipee: "#A4C407",
+      viewer3dPlugin: null,
       queryString: "",
       shareUrl: null,
       activeAddrule: null,
@@ -122,23 +129,39 @@ export default {
       return "https://smarty.plateforme-tipee.com";
     },
   },
+  watch: {},
   created() {
-    console.log("rulesTab created access_token", this.access_token);
-    // this.rules = this.getrules();
-    // console.log("rulesTab created getrules", this.getrules());
-
-    this.loading = false;
+    // this.loading = true;
+    this.viewer3dPlugin = this.$viewer.globalContext.getPlugins("viewer3d")[0];
   },
   mounted() {
-    console.log("rulesTab mounted access_token", this.access_token);
+    console.log("=======RULES MOUNTED======");
   },
   onOpen() {
     // this.rules = this.getrules();
     // console.log("rulesTab onOpen getrules", this.getrules());
   },
   methods: {
+    getUuids() {
+      return [...this.$viewer.state.ifcs[0].uuids.keys()];
+    },
+    difference() {
+      return _.difference(this.getUuids(), this.reflectElementUuids);
+    },
+    intersection() {
+      return _.intersection(this.getUuids(), this.reflectElementUuids);
+    },
+
     async clear() {
       this.queryString = "";
+    },
+    async clearViewer() {
+      if (this.difference()) {
+        this.$viewer.state.showObjectsByUuids(this.difference());
+      }
+      if (this.reflectElementUuids) {
+        this.$viewer.state.deselectObjectsByUuids(this.reflectElementUuids);
+      }
     },
 
     updateParent(rule_created) {
@@ -149,11 +172,23 @@ export default {
       return {
         Authorization: "Bearer " + this.access_token,
         "Content-Type": "application/json",
+        Accept: "application/json",
       };
     },
 
     initrule() {
       this.$emit("reflect-connected-method", "");
+    },
+
+    onObjectsSelected(uuids) {
+      const selectedAndMonitoredElements = uuids.filter(uuid =>
+        this.result_run_rule.some(element => element.uuid === uuid)
+      );
+      // if (selectedAndMonitoredElements.length > 0) {
+      //   this.selectedElement = this.monitoredElements.find(
+      //     element => element.uuid === selectedAndMonitoredElements[0]
+      //   );
+      // }
     },
 
     async fetchData(ruleType, queryStr) {
@@ -173,7 +208,7 @@ export default {
 
       if (ruleType === "reflect") {
         const queryBuilder = {
-          attributes: "BaseQuantities.*",
+          attributes: ["BaseQuantities.*"],
           query: queryStr,
           type_rule: ruleType,
         };
@@ -188,6 +223,7 @@ export default {
 
     handleClick(event) {
       console.log("handleClick", event);
+      this.clearViewer();
 
       let rule_type;
 
@@ -200,30 +236,60 @@ export default {
       }
 
       if (rule_type) {
-        this.fetchData(rule_type, this.queryString)
-          .then(res => {
-            const fetchRunRule = async queryBuilder => {
-              console.log("handleClick fetchRunRule", queryBuilder);
-              return await this.runQuery( queryBuilder);
-            };
+        this.fetchData(rule_type, this.queryString).then(async res => {
+          // const fetchRunRule = async queryBuilder => {
+          //   console.log("handleClick fetchRunRule", queryBuilder);
+          //   return await this.runQuery(queryBuilder);
+          // };
 
-            fetchRunRule(res.queryBuilder).then(res => {
-              console.log("handleClick fetchRunRule", res);
+          const result = await this.runQuery(res.queryBuilder);
+          console.log("=======RUN QUERY======", result);
+
+          if (result.length > 0) {
+            this.result_run_rule = res[0].result;
+            console.log("=======RUN QUERY======", this.result_run_rule);
+
+            this.reflectElementUuids = this.result_run_rule.map(element => {
+              return element.GlobalId.toString();
             });
-          })
+            console.log("=======RUN QUERY======", this.reflectElementUuids);
+            console.log("=======RUN QUERY======", this.getUuids());
+            console.log("=======RUN QUERY======", this.difference());
+
+            this.viewer3dPlugin.fitViewObjects(this.reflectElementUuids);
+            this.$viewer.state.hideObjectsByUuids(this.difference());
+            // this.$viewer.state.colorizeObjectsByUuids(
+            //   this.difference(),
+            //   this.color_tipee
+            //   );
+            this.$viewer.state.highlightObjectsByUuids(
+              this.reflectElementUuids
+            );
+            this.$viewer.state.selectObjectsByUuids(this.reflectElementUuids);
+          }
+        });
       }
     },
     async runQuery(queryBuilder) {
       console.log("=======RUN QUERY======", queryBuilder);
+      // console.log("=======RUN JSON======", JSON.stringify(queryBuilder));
 
-      const res = await fetch(`${this.reflect_url}/reflect/project/${this.projectId}/rule`, {
-        headers: this.headers(),
-        body: JSON.stringify(queryBuilder),
-        method: "POST",
-      }).then(result => console.log(result))
+      return await fetch(
+        `${this.reflect_url}/reflect/project/${this.projectId}/rule`,
+        {
+          headers: this.headers(),
+          body: JSON.stringify(queryBuilder),
+          method: "POST",
+        }
+      )
+        .then(response => response.json())
+        .then(result => console.log(result))
         .catch(error => console.log("error", error));
-      const json = await res.json();
-      return json;
+
+      // const json = await res;
+      // console.log("=======RUN JSON======", json);
+      //
+      // return json;
     },
   },
 };

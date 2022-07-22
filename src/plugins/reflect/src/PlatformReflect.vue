@@ -41,8 +41,11 @@
         </transition>
       </div>
       <div class="reflect__footer">
-        <a class="reflect__footer__link" href="">
+        <a class="reflect__footer__link" href="https://smarty.plateforme-tipee.com/apidocs#/">
           {{ $t("ReflectPlugin.ReflectTab.footerLinkAPIReflect") }}
+        </a>
+        <a class="reflect__footer__link" href="https://reflect.plateforme-tipee.com/help/Syntaxe_des_requete_IFC_REFLECT.pdf">
+          {{ $t("ReflectPlugin.ReflectTab.footerLinkHelpReflect") }}
         </a>
         <span class="reflect__footer__text">
           {{ $t("ReflectPlugin.ReflectTab.footerText") }}
@@ -63,7 +66,7 @@ import {
   BIMDataButton,
   BIMDataIcon,
   BIMDataLoading,
-  BIMDataSearch
+  BIMDataSearch,
 } from "@bimdata/design-system";
 
 export default {
@@ -96,10 +99,10 @@ export default {
   },
   created() {
     console.log("=====CREATED=====", this.connected);
-    this.isConnected();
   },
   mounted() {
     console.log("=====MOUNTED=====", this.connected);
+
   },
   onOpen() {},
   beforeDestroy() {
@@ -107,6 +110,8 @@ export default {
   },
   methods: {
     isConnected(value) {
+      // console.log("=======VIEWER GLOBAL======",  this.$viewer);
+      // console.log("=======VIEWER GLOBAL CONTEXT======",  this.$viewer.globalContext);
       console.log("=====IS CONNECTED ?=====", this.connected);
       this.connected = value;
       this.getAccessToken();
@@ -115,15 +120,32 @@ export default {
       }
     },
 
-    getProjectName(){
-      // Set default fileName
-      const parts = this.$viewer.state.models[0].document.file_name.split(".");
-      parts.pop(); // Remove extension
-      return parts.join("."); // rebuild name without extension
+    getProjectName() {
+      const loadedIfcs = this.$viewer.state.ifcs;
+      console.log("======GET PROJECT NAME=====", loadedIfcs)
+
+      let name;
+      if (loadedIfcs.length > 1) {
+        this.$viewer.localContext.hub.emit("alert", {
+          type: "error",
+          message:
+            "You can't split more than one model at once. Please load only one model",
+        });
+        this.$emit("set-inactive");
+      } else if (loadedIfcs.length === 1) {
+        this.loadedIfc = loadedIfcs[0];
+        const fileName = this.loadedIfc.document.file_name;
+        const parts = fileName.split(".");
+        parts.pop(); // Remove extension
+        name = parts.join("."); // rebuild name without extension
+      }
+      console.log("======GET PROJECT NAME=====", name)
+      return name;
     },
+
     async initProject() {
       this.loading = true;
-      const projectName =this.getProjectName();
+      const projectName = this.getProjectName();
       const projectDescription = "";
 
       const res = await fetch(`${this.reflect_url}/reflect/project`, {
@@ -178,12 +200,7 @@ export default {
         headers: this.headers(),
       });
 
-      this.projects  = await res.json();
-      const project_current  = this.projects.find((x) => x.name === this.getProjectName());
-      this.project_id  = project_current._id;
-      console.log('this.project_id ', this.project_id);
-
-      console.log("=====PROJECTS=====", this.projects.length);
+      this.projects = await res.json();
 
       if (this.connected && this.projects.length === 0) {
         console.log("=====INIT=====");
@@ -192,6 +209,14 @@ export default {
       } else {
         this.active_initialisation = false;
         console.log("=====NOT INIT=====");
+        const project_current = this.projects.find(
+          x => x.name === this.getProjectName()
+        );
+        this.project_id = project_current._id;
+        console.log("this.project_id ", this.project_id);
+
+        console.log("=====PROJECTS=====", this.projects.length);
+
         this.loading = false;
         // await this.getRules();
       }

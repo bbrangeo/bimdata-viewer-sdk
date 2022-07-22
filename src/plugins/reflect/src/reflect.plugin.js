@@ -30,7 +30,8 @@ export default {
       ReflectTab: {
         tab1: "Projects",
         tab2: "Rules",
-        footerLinkAPIReflect: "Lien vers API REFLECT",
+        footerLinkAPIReflect: "API REFLECT",
+        footerLinkHelpReflect: "Aide",
         footerText: "",
       },
     },
@@ -40,7 +41,8 @@ export default {
       ReflectTab: {
         tab1: "Projects",
         tab2: "Settings",
-        footerLinkAPIReflect: "Lien vers API REFLECT",
+        footerLinkAPIReflect: "API REFLECT",
+        footerLinkHelpReflect: "Aide",
         footerText: "",
 
       },
