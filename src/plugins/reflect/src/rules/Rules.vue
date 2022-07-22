@@ -107,7 +107,7 @@ export default {
       color_black: "#000000",
       color_tipee: "#A4C407",
       viewer3dPlugin: null,
-      queryString: "",
+      queryString: "'.IfcSpace[Name *= \"CH1\"]'",
       shareUrl: null,
       activeAddrule: null,
       loading: false,
@@ -237,43 +237,36 @@ export default {
 
       if (rule_type) {
         this.fetchData(rule_type, this.queryString).then(async res => {
-          // const fetchRunRule = async queryBuilder => {
-          //   console.log("handleClick fetchRunRule", queryBuilder);
-          //   return await this.runQuery(queryBuilder);
-          // };
-
-          const result = await this.runQuery(res.queryBuilder);
-          console.log("=======RUN QUERY======", result);
-
-          if (result.length > 0) {
-            this.result_run_rule = res[0].result;
+          const response = await this.runQuery(res.queryBuilder);
+          if (response.length > 0) {
+            this.result_run_rule = response[0].result;
             console.log("=======RUN QUERY======", this.result_run_rule);
 
             this.reflectElementUuids = this.result_run_rule.map(element => {
               return element.GlobalId.toString();
             });
             console.log("=======RUN QUERY======", this.reflectElementUuids);
-            console.log("=======RUN QUERY======", this.getUuids());
-            console.log("=======RUN QUERY======", this.difference());
+            console.log("=======RUN UUIDS======", this.getUuids());
+            console.log("=======RUN DIFF======", this.difference());
 
             this.viewer3dPlugin.fitViewObjects(this.reflectElementUuids);
             this.$viewer.state.hideObjectsByUuids(this.difference());
+
+            this.$viewer.state.highlightObjectsByUuids(
+              this.reflectElementUuids
+            );
             // this.$viewer.state.colorizeObjectsByUuids(
             //   this.difference(),
             //   this.color_tipee
             //   );
-            this.$viewer.state.highlightObjectsByUuids(
-              this.reflectElementUuids
-            );
             this.$viewer.state.selectObjectsByUuids(this.reflectElementUuids);
           }
         });
       }
     },
+
     async runQuery(queryBuilder) {
       console.log("=======RUN QUERY======", queryBuilder);
-      // console.log("=======RUN JSON======", JSON.stringify(queryBuilder));
-
       return await fetch(
         `${this.reflect_url}/reflect/project/${this.projectId}/rule`,
         {
@@ -283,13 +276,9 @@ export default {
         }
       )
         .then(response => response.json())
-        .then(result => console.log(result))
-        .catch(error => console.log("error", error));
+        // .then(result => JSON.parse(result.replace(/\bNaN\b/g, "null")))
+        .catch(error => console.log("====ERROR RUN QUERY====", error));
 
-      // const json = await res;
-      // console.log("=======RUN JSON======", json);
-      //
-      // return json;
     },
   },
 };

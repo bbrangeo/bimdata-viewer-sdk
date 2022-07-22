@@ -1,3 +1,5 @@
-// import {reactive} from "vue";
-//
-// export default state = reactive({}); // You can add initial values here if needed
+// state.js
+import {reactive} from "vue";
+
+const state = reactive({}); // You can add initial values here if needed
+export default state;

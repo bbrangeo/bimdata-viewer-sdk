@@ -41,10 +41,16 @@
         </transition>
       </div>
       <div class="reflect__footer">
-        <a class="reflect__footer__link" href="https://smarty.plateforme-tipee.com/apidocs#/">
+        <a
+          class="reflect__footer__link"
+          href="https://smarty.plateforme-tipee.com/apidocs#/"
+        >
           {{ $t("ReflectPlugin.ReflectTab.footerLinkAPIReflect") }}
         </a>
-        <a class="reflect__footer__link" href="https://reflect.plateforme-tipee.com/help/Syntaxe_des_requete_IFC_REFLECT.pdf">
+        <a
+          class="reflect__footer__link"
+          href="https://reflect.plateforme-tipee.com/help/Syntaxe_des_requete_IFC_REFLECT.pdf"
+        >
           {{ $t("ReflectPlugin.ReflectTab.footerLinkHelpReflect") }}
         </a>
         <span class="reflect__footer__text">
@@ -59,7 +65,9 @@
 </template>
 
 <script>
-// import state from './state';
+// MyComponent.vue
+import state from "./state";
+
 import ConnectPlatformReflect from "@/plugins/reflect/src/ConnectPlatformReflect";
 import Rules from "@/plugins/reflect/src/rules/Rules";
 import {
@@ -83,6 +91,7 @@ export default {
       projects: [],
       rules: [],
       loading: false,
+      loadedModel: null,
       searchText: "",
       connected: false,
       access_token: null,
@@ -102,7 +111,6 @@ export default {
   },
   mounted() {
     console.log("=====MOUNTED=====", this.connected);
-
   },
   onOpen() {},
   beforeDestroy() {
@@ -121,25 +129,25 @@ export default {
     },
 
     getProjectName() {
-      const loadedIfcs = this.$viewer.state.ifcs;
-      console.log("======GET PROJECT NAME=====", loadedIfcs)
+      const loadedModels = this.$viewer.state.models;
+      console.log("======GET PROJECT NAME=====", loadedModels);
 
       let name;
-      if (loadedIfcs.length > 1) {
+      if (loadedModels.length > 1) {
         this.$viewer.localContext.hub.emit("alert", {
           type: "error",
           message:
             "You can't split more than one model at once. Please load only one model",
         });
         this.$emit("set-inactive");
-      } else if (loadedIfcs.length === 1) {
-        this.loadedIfc = loadedIfcs[0];
-        const fileName = this.loadedIfc.document.file_name;
+      } else if (loadedModels.length === 1) {
+        this.loadedModel = loadedModels[0];
+        const fileName = this.loadedModel.document.file_name;
         const parts = fileName.split(".");
         parts.pop(); // Remove extension
         name = parts.join("."); // rebuild name without extension
       }
-      console.log("======GET PROJECT NAME=====", name)
+      console.log("======GET PROJECT NAME=====", name);
       return name;
     },
 
@@ -148,17 +156,18 @@ export default {
       const projectName = this.getProjectName();
       const projectDescription = "";
 
-      const res = await fetch(`${this.reflect_url}/reflect/project`, {
+      const response = await fetch(`${this.reflect_url}/reflect/project`, {
         headers: this.headers(),
         body: JSON.stringify({
           name: projectName,
           description: projectDescription,
         }),
         method: "POST",
-      });
-      const json = await res.json();
-      this.project_id = json.project_id;
+      })
+        .then(response => response.json())
+        .catch(error => console.log("====ERROR INIT PROJECT====", error));
 
+      this.project_id = response.project_id;
       const info = this.getInfoIfcFile();
       const url = info.url;
       const filename = info.filename;
@@ -196,11 +205,11 @@ export default {
       console.log("=====STATE=====", this.$viewer.state);
 
       this.loading = true;
-      const res = await fetch(`${this.reflect_url}/reflect/projects`, {
+      this.projects = await fetch(`${this.reflect_url}/reflect/projects`, {
         headers: this.headers(),
-      });
-
-      this.projects = await res.json();
+      })
+        .then(response => response.json())
+        .catch(error => console.log("====ERROR INIT PROJECT====", error));
 
       if (this.connected && this.projects.length === 0) {
         console.log("=====INIT=====");
@@ -267,6 +276,9 @@ export default {
       if (access_reflect) {
         this.access_token = access_reflect.access_token;
         this.connected = access_reflect.connected;
+
+        state.accessToken = this.access_token;
+        state.connected = this.connected;
       } else {
         this.connected = false;
       }
@@ -297,7 +309,7 @@ export default {
       this.project_id = this.projects[0]._id;
       this.loading = true;
 
-      const res = await fetch(
+      const response = await fetch(
         `${this.reflect_url}/reflect/rules?` +
           new URLSearchParams({
             projectId: this.project_id,
@@ -305,9 +317,10 @@ export default {
         {
           headers: this.headers(),
         }
-      );
-      const json = await res.json();
-      this.rules = json.data;
+      )
+        .then(response => response.json())
+        .catch(error => console.log("====ERROR GET RULES====", error));
+      this.rules = response.data;
       this.loading = false;
     },
 
@@ -347,16 +360,17 @@ export default {
     },
 
     async getTaskStatus(project_id, task_id) {
-      const res = await fetch(
+      const response = await fetch(
         `${this.reflect_url}/reflect/project/${project_id}/tasks/${task_id}`,
         {
           headers: this.headers(),
           method: "GET",
         }
-      );
-      const json = await res.json();
+      )
+        .then(response => response.json())
+        .catch(error => console.log("====ERROR GET TASK STATUS====", error));
 
-      return json.task_status;
+      return response.task_status;
     },
 
     getWithExpiry(key) {
