@@ -33,7 +33,7 @@ export default {
         footerLinkAPIReflect: "API REFLECT",
         footerLinkHelpReflect: "Aide",
         footerText: "",
-      },
+      },w
     },
     fr: {
       window_label: "Reflect est génial !",
