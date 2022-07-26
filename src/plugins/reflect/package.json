@@ -18,7 +18,7 @@
     "reflect"
   ],
   "devDependencies": {
-    "@bimdata/design-system": "1.4.0-rc.16",
+    "@bimdata/design-system": "1.4.0-rc.30",
     "@rollup/plugin-node-resolve": "^13.0.5",
     "@rollup/plugin-url": "^6.0.0",
     "lodash": "^4.17.21",

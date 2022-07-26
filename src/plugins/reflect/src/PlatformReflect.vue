@@ -4,38 +4,53 @@
       v-show="!connected"
       v-on:reflect-connected-method="isConnected"
     />
-
     <div v-show="connected">
-      <BIMDataButton
-        width="32px"
-        @click="deleteAll"
-        class="bimdata-btn__ghost bimdata-btn__ghost--default bimdata-btn__square m-r-12"
-      >
-        <BIMDataIcon name="delete" fill color="default" size="xs" />
-      </BIMDataButton>
-      <BIMDataButton
-        width="32px"
-        @click="logout"
-        class="bimdata-btn__ghost bimdata-btn__ghost--default bimdata-btn__square m-r-12"
-      >
-        <BIMDataIcon name="logout" fill color="default" size="xs" />
-      </BIMDataButton>
-      <BIMDataButton
-        width="32px"
-        @click="isConnected"
-        class="bimdata-btn__ghost bimdata-btn__ghost--default bimdata-btn__square m-r-12"
-      >
-        <BIMDataIcon name="refresh" fill color="default" size="xs" />
-      </BIMDataButton>
+      <BIMDataDropdownMenu :disabled="false" width="25%" class="flex flex-row content-center">>
+        <template #header>
+          <BIMDataIcon name="burgerMenu" size="xxs" />
+          MENU
+        </template>
+        <template #element>
+          <div class="flex flex-col items-start">
+            <BIMDataButton
+              v-show="modeAdmin"
+              width="32px"
+              @click="deleteAll"
+              class="bimdata-btn__ghost bimdata-btn__ghost--default bimdata-btn__square"
+            >
+              <span>Delete all</span>
+              <BIMDataIcon name="delete" fill color="default" size="xxs" />
+            </BIMDataButton>
+            <BIMDataButton
+              v-show="modeAdmin"
+              width="32px"
+              @click="isConnected"
+              class="bimdata-btn__ghost bimdata-btn__ghost--default bimdata-btn__square"
+            >
+              <span>Refresh</span>
+              <BIMDataIcon name="refresh" fill color="default" size="xxs" />
+            </BIMDataButton>
+            <BIMDataButton
+              width="32px"
+              @click="logout"
+              class="bimdata-btn__ghost bimdata-btn__ghost--default bimdata-btn__square"
+            >
+              <span class="m-6">Logout</span>
+              <BIMDataIcon name="logout" fill color="default" size="xxs" />
+            </BIMDataButton>
+          </div>
+        </template>
+      </BIMDataDropdownMenu>
+
       <div class="reflect__body">
         <transition name="fade" mode="out-in">
           <keep-alive>
             <Rules
               v-on:reflect-connected-method="isConnected"
-              :access_token="access_token"
               :rules="rules"
               :projectId="project_id"
               :active_initialisation="active_initialisation"
+              :modeAdmin="modeAdmin"
             />
           </keep-alive>
         </transition>
@@ -65,7 +80,6 @@
 </template>
 
 <script>
-// MyComponent.vue
 import state from "./state";
 
 import ConnectPlatformReflect from "@/plugins/reflect/src/ConnectPlatformReflect";
@@ -74,7 +88,7 @@ import {
   BIMDataButton,
   BIMDataIcon,
   BIMDataLoading,
-  BIMDataSearch,
+  BIMDataDropdownMenu
 } from "@bimdata/design-system";
 
 export default {
@@ -83,11 +97,13 @@ export default {
     BIMDataIcon,
     BIMDataButton,
     BIMDataLoading,
-    Rules,
+    BIMDataDropdownMenu,
     ConnectPlatformReflect,
+    Rules,
   },
   data() {
     return {
+      modeAdmin: false,
       projects: [],
       rules: [],
       loading: false,
@@ -108,15 +124,35 @@ export default {
   },
   created() {
     console.log("=====CREATED=====", this.connected);
+    this.$viewer.globalContext.hub.once("3d-model-loaded", () => {
+      console.log("=====MODEL LOADED=====");
+      this.getProjectName();
+    });
   },
   mounted() {
     console.log("=====MOUNTED=====", this.connected);
+    this.$viewer.localContext.registerShortcut({
+      name: "admin",
+      key: "$",
+      ctrlKey: true,
+      shiftKey: false,
+      execute: () => {
+        this.activatedModeAdmin();
+      },
+    });
   },
   onOpen() {},
   beforeDestroy() {
     clearInterval(this.retrieving);
+    this.$viewer.localContext.unregisterShortcut("admin");
   },
   methods: {
+    activatedModeAdmin() {
+      console.log("======ADMIN=====");
+
+      this.modeAdmin = !this.modeAdmin;
+      state.admin = !this.modeAdmin;
+    },
     isConnected(value) {
       // console.log("=======VIEWER GLOBAL======",  this.$viewer);
       // console.log("=======VIEWER GLOBAL CONTEXT======",  this.$viewer.globalContext);
@@ -205,31 +241,34 @@ export default {
       console.log("=====STATE=====", this.$viewer.state);
 
       this.loading = true;
-      this.projects = await fetch(`${this.reflect_url}/reflect/projects`, {
-        headers: this.headers(),
-      })
-        .then(response => response.json())
-        .catch(error => console.log("====ERROR INIT PROJECT====", error));
+      if (this.connected) {
+        await fetch(`${this.reflect_url}/reflect/projects`, {
+          headers: this.headers(),
+        })
+          .then(response => response.json())
+          .then(async result => {
+            this.projects = result;
 
-      if (this.connected && this.projects.length === 0) {
-        console.log("=====INIT=====");
-        await this.initProject();
-        this.active_initialisation = true;
-      } else {
-        this.active_initialisation = false;
-        console.log("=====NOT INIT=====");
-        const project_current = this.projects.find(
-          x => x.name === this.getProjectName()
-        );
-        this.project_id = project_current._id;
-        console.log("this.project_id ", this.project_id);
+            if (this.projects.length === 0) {
+              console.log("=====INIT=====");
+              await this.initProject();
+              this.active_initialisation = true;
+            } else {
+              this.active_initialisation = false;
+              console.log("=====NOT INIT=====");
+              const project_current = this.projects.find(
+                x => x.name === this.getProjectName()
+              );
+              this.project_id = project_current._id;
+              console.log("this.project_id ", this.project_id);
+              console.log("=====PROJECTS=====", this.projects.length);
 
-        console.log("=====PROJECTS=====", this.projects.length);
-
-        this.loading = false;
-        // await this.getRules();
+              this.loading = false;
+              // await this.getRules();
+            }
+          })
+          .catch(error => console.log("====ERROR INIT PROJECT====", error));
       }
-
       return this.projects;
     },
 
@@ -280,7 +319,7 @@ export default {
         state.accessToken = this.access_token;
         state.connected = this.connected;
       } else {
-        this.connected = false;
+        this.logout();
       }
       console.log("=====ACCESS TOKEN=====", this.access_token);
     },
@@ -393,6 +432,8 @@ export default {
     logout() {
       // debugger;
       this.connected = false;
+      state.connected = false;
+      state.accessToken = null;
       localStorage.removeItem("access_reflect");
       console.log("deconnexion", this.connected);
       this.$emit("close");
@@ -409,10 +450,13 @@ export default {
 @import "~@bimdata/design-system/dist/css/design-system.css";
 @import "~@bimdata/design-system/dist/scss/_BIMDataTransitions.scss";
 @import "~@bimdata/design-system/dist/scss/BIMDataUtilities.scss";
+@import "~@bimdata/design-system/dist/scss/mixins/font-size.scss";
+
 .reflect {
   display: block;
   width: 100%;
   padding: var(--spacing-unit);
+  font-size: calculateEm(12px);
 
   &__body {
     display: block;

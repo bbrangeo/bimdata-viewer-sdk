@@ -38,6 +38,7 @@ import {
   BIMDataButton,
   BIMDataInput,
 } from "@bimdata/design-system/components.js";
+import state from "@/plugins/reflect/src/state";
 
 export default {
   name: "ConnectPlatformReflect",
@@ -110,13 +111,14 @@ export default {
       } else {
         this.connected = true;
       }
+      state.accessToken = this.access_token;
+      state.connected = this.connected;
 
-      // localStorage.setItem('access_token', json.access_token);
       localStorage.setItem("connected", this.connected);
       this.setWithExpiry(
         "access_reflect",
         { access_token: json.access_token, connected: this.connected },
-        1000000
+        100000
       );
       this.$emit("reflect-connected-method", this.connected);
       this.$emit("close");
@@ -161,7 +163,7 @@ export default {
     }
   }
   &__content {
-    padding: 10px;
+    padding: 1px;
     width: 100%;
 
     .bimdata-btn {
