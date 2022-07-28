@@ -7,15 +7,22 @@
       @item-click="onItemClick"
       @all-results-click="onAllResultsClick"
       :loading="isLoading"
-      v-model="queryString"
       class="m-t-24 bimdata-search-autocomplete bimdata-search-autocomplete__input"
     >
       <template #logoPlaceholder>
         <BIMDataIcon name="doubleChevron" fill color="default" size="xxs" />
       </template>
     </BIMDataSearchAutocomplete>
-    <BIMDataDropdownList
+    <BIMDataSelect
+      class="m-24"
       v-show="modeAdmin"
+      :multi="true"
+      width="200px"
+      label="Selector output properties"
+      :options="arrayProperties"
+      v-model="selectionProperties"
+    />
+    <BIMDataDropdownList
       :list="arrayProperties"
       :perPage="10"
       elementKey="dropdown"
@@ -31,7 +38,7 @@
             class="fill-primary"
             margin="0 6px 0 0"
             :state="false"
-            :modelValue="element"
+            :modelValue="selectedItem === element"
             @update:modelValue="updateValue(element, $event)"
           />
           <span @click="close()">{{ element }}</span>
@@ -47,6 +54,7 @@
       :clear="true"
       :autofocus="true"
       @clear="clear"
+      @update:modelValue="testLark"
     ></BIMDataSearch>
     <!--    <AddruleReflect-->
     <!--      v-show="activeAddrule"-->
@@ -59,7 +67,8 @@
       color="primary"
       fill
       rounded
-      class="bimdata-btn__fill bimdata-btn__fill--primary bimdata-btn__radius"
+      size="xxs"
+      class="m-t-6 bimdata-btn__fill bimdata-btn__fill--primary bimdata-btn__radius"
     >
       <BIMDataIcon name="reset" size="xxs" />
     </BIMDataButton>
@@ -69,40 +78,6 @@
       columnGap="18px"
       v-show="!activeAddrule"
     >
-      <div class="m-6" style="width: 150px; height: 150px" key="ruleAdd">
-        <BIMDataButton
-          v-show="modeAdmin"
-          width="100%"
-          icon
-          @click="initrule"
-          class="m-6 bimdata-btn__fill bimdata-btn__fill--primary bimdata-btn__radius"
-        >
-          <BIMDataIcon
-            name="plus"
-            fill
-            color="default"
-            size="xxs"
-            margin="0 12px 0 0"
-          />
-          <span>Create a package rule</span>
-        </BIMDataButton>
-        <BIMDataButton
-          v-show="modeAdmin"
-          width="100%"
-          icon
-          @click="initrule"
-          class="m-6 bimdata-btn__fill bimdata-btn__fill--primary bimdata-btn__radius"
-        >
-          <BIMDataIcon
-            name="plus"
-            fill
-            color="default"
-            size="xxs"
-            margin="0 12px 0 0"
-          />
-          <span>Create a rule</span>
-        </BIMDataButton>
-      </div>
       <div
         class="m-6"
         style="width: 250px; height: 150px"
@@ -132,14 +107,15 @@
       @all-unselected="onObjectsDeSelected"
       :columns="columns"
       :rows="rows"
-      :rowHeight="50"
+      :rowHeight="20"
       :tableWidth="100"
       :selectable="true"
       :paginated="true"
-      :perPage="4"
+      :perPage="8"
       placeholder="Empty"
-      v-show="showing_table"
-      style="overflow: auto"
+      v-show="showing_table && !loading"
+      style="overflow: auto; font-size: 0.7rem"
+      class="bimdata-table__container"
     >
       <!--    <template #cell-rule="{ row }">-->
       <!--      <ViewLinkCell :rule="row" />-->
@@ -148,6 +124,9 @@
       <!--        <ViewLinkCell :rule="rule" />-->
       <!--      </template>-->
     </BIMDataTable>
+    <div v-show="loading" class="loading">
+      <BIMDataSpinner message="Calculate ..." />
+    </div>
   </div>
 </template>
 
@@ -159,14 +138,17 @@ import {
   BIMDataIcon,
   BIMDataSearchAutocomplete,
   BIMDataTable,
+  BIMDataSpinner,
   BIMDataDropdownList,
   BIMDataCheckbox,
+  BIMDataSelect,
   BIMDataSearch,
 } from "@bimdata/design-system";
 // import AddruleReflect from "@/plugins/reflect/src/rules/AddruleReflect";
 // import ViewLinkCell from "@/plugins/reflect/src/rules/ViewLinkCell";
 import _ from "lodash";
 import state from "../state";
+import { get_parser, Token } from "@/plugins/reflect/src/my_parser.js";
 
 export default {
   name: "Rules",
@@ -178,6 +160,8 @@ export default {
     BIMDataSearchAutocomplete,
     BIMDataSearch,
     BIMDataTable,
+    BIMDataSelect,
+    BIMDataSpinner,
     BIMDataDropdownList,
     BIMDataCheckbox,
   },
@@ -216,19 +200,19 @@ export default {
       activeAddrule: null,
       isLoading: false,
       loading: false,
+      selectedItem: null,
       rows: [],
       columns: [],
       properties: [],
+      selectionProperties: ["BaseQuantities.*"],
       arrayProperties: [],
-      arrayTypesIfc:[]
+      arrayTypesIfc: [],
     };
   },
   computed: {
     reflect_url() {
       return "https://smarty.plateforme-tipee.com";
     },
-
-
   },
   watch: {},
   created() {
@@ -247,8 +231,42 @@ export default {
     // console.log("rulesTab onOpen getrules", this.getrules());
   },
   methods: {
+    testLark(item) {
+      let transformer = {
+        number: ([n])  => parseFloat(n.value),
+        string: ([s])  => s.value.slice(1, -1),
+        array:  Array.from,
+        pair:   Array.from,
+        object: Object.fromEntries,
+
+        null: () => null,
+        true: () => true,
+        false: () => false,
+      }
+
+      const parser = get_parser({transformer});
+      function ignore_errors(e) {
+        // This function gets called whenever there is a parse error
+
+        if (e.token.type === "COMMA") {
+          // Ignore a misplaced comma
+          return true;
+        } else if (e.token.type === "SIGNED_NUMBER") {
+          // Unexpected number. Try to feed a comma and retry the number
+          e.interactive_parser.feed_token(new Token("COMMA", ","));
+          e.interactive_parser.feed_token(e.token);
+          return true;
+        }
+
+        // Unhandled error. Will stop parse and raise exception
+        return false;
+      }
+      console.log(parser.parse(item, null, ignore_errors));
+    },
     getTypeOfUuids() {
-      const arrayTypes = _.uniq(this.$viewer.state.objects.map(object => this.toIfcType(object.type)));
+      const arrayTypes = _.uniq(
+        this.$viewer.state.objects.map(object => this.toIfcType(object.type))
+      );
       return arrayTypes.map((element, index) => {
         const obj3 = {};
         obj3["id"] = index;
@@ -260,33 +278,35 @@ export default {
     },
     onItemClick($event) {
       console.log($event);
+      this.selectionProperties = [];
       this.handleProperties($event.title);
     },
     async handleProperties(title) {
       this.loading = true;
       this.arrayProperties = await this.getProperties(title);
-      // this.properties = Object.assign({}, this.properties);
-      this.properties = this.arrayProperties.map((element, index) => {
-        const obj3 = {};
-        obj3["id"] = index;
-        obj3["title"] = element;
-        // obj3["text"] = element;
-
-        return obj3;
-      });
+      if (this.arrayProperties.length > 0) {
+        this.properties = this.arrayProperties.map((element, index) => {
+          const obj3 = {};
+          obj3["id"] = index;
+          obj3["title"] = element;
+          // obj3["text"] = element;
+          return obj3;
+        });
+      }
       console.log("=======GET PROPERTIES======", this.properties);
       this.loading = false;
     },
     async getProperties(title) {
       console.log("=======GET PROPERTIES======");
-      let paramsString = ""
-      paramsString = "?" + new URLSearchParams({ifc_type:title});
+      let paramsString = "";
+      paramsString = "?" + new URLSearchParams({ ifc_type: title });
 
       return await fetch(
-        `${this.reflect_url}/reflect/project/${this.projectId}/properties`+paramsString,
+        `${this.reflect_url}/reflect/project/${this.projectId}/properties` +
+          paramsString,
         {
           headers: this.headers(),
-          method: "GET"
+          method: "GET",
         }
       )
         .then(response => response.json())
@@ -302,8 +322,9 @@ export default {
       }
     },
 
-    updateValue(row, value) {
-      console.log("=======updateValue======", row, value);
+    updateValue(element, value) {
+      console.log("=======updateValue======", element, value);
+      this.selectedItem = element;
     },
     onPropertiesClick($event) {
       console.log("=======onPropertiesClick======", $event);
@@ -321,6 +342,11 @@ export default {
 
     async clear() {
       this.queryString = "";
+    },
+    clearData() {
+      this.result_run_rule = [];
+      this.rows = [];
+      this.columns = [];
     },
     async clearViewer() {
       if (this.difference()) {
@@ -340,7 +366,6 @@ export default {
       this.activeAddrule = !rule_created;
     },
 
-
     toIfcType(s) {
       s = "Ifc_" + s;
       return s.replace(/([-_][a-z])/gi, $1 => {
@@ -355,10 +380,6 @@ export default {
         "Content-Type": "application/json",
         Accept: "application/json",
       };
-    },
-
-    initrule() {
-      this.$emit("reflect-connected-method", "");
     },
 
     onObjectsSelected(objects) {
@@ -414,7 +435,8 @@ export default {
 
       if (ruleType === "reflect") {
         const queryBuilder = {
-          attributes: ["BaseQuantities.*", "Autre.*"],
+          // attributes: ["BaseQuantities.*", "Autre.*"],
+          attributes: _.uniq(this.selectionProperties),
           query: queryStr,
           type_rule: ruleType,
         };
@@ -483,8 +505,7 @@ export default {
 
       if (state.connected) {
         this.clearViewer();
-        this.handleProperties();
-
+        this.clearData();
         let rule_type;
 
         const regex = /^[.|@]/g;
@@ -573,8 +594,6 @@ export default {
         // .then(result => JSON.parse(result.replace(/\bNaN\b/g, "null")))
         .catch(error => console.log("====ERROR RUN QUERY====", error));
     },
-
-
   },
 };
 </script>

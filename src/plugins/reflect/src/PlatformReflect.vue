@@ -5,13 +5,56 @@
       v-on:reflect-connected-method="isConnected"
     />
     <div v-show="connected">
-      <BIMDataDropdownMenu :disabled="false" width="25%" class="flex flex-row content-center">>
+      <BIMDataDropdownMenu
+        :disabled="false"
+        width="25%"
+        class="flex flex-row content-center"
+        >>
         <template #header>
           <BIMDataIcon name="burgerMenu" size="xxs" />
           MENU
         </template>
         <template #element>
           <div class="flex flex-col items-start">
+            <div
+              v-show="modeAdmin"
+              class="m-6"
+              style="width: 150px; height: 150px"
+              key="ruleAdd"
+            >
+              <BIMDataButton
+                width="100%"
+                icon
+                @click="initrule"
+                class="m-6 bimdata-btn__fill bimdata-btn__fill--primary bimdata-btn__radius"
+              >
+                <BIMDataIcon
+                  name="plus"
+                  fill
+                  color="default"
+                  size="xxs"
+                  margin="0 12px 0 0"
+                />
+                <span>Create a package rule</span>
+              </BIMDataButton>
+              <BIMDataButton
+                v-show="modeAdmin"
+                width="100%"
+                icon
+                @click="initrule"
+                class="m-6 bimdata-btn__fill bimdata-btn__fill--primary bimdata-btn__radius"
+              >
+                <BIMDataIcon
+                  name="plus"
+                  fill
+                  color="default"
+                  size="xxs"
+                  margin="0 12px 0 0"
+                />
+                <span>Create a rule</span>
+              </BIMDataButton>
+            </div>
+
             <BIMDataButton
               v-show="modeAdmin"
               width="32px"
@@ -74,7 +117,7 @@
       </div>
     </div>
     <div v-if="loading" class="loading">
-      <BIMDataLoading />
+      <BIMDataLoading message="Transfert des inforamtions"/>
     </div>
   </div>
 </template>
@@ -88,7 +131,7 @@ import {
   BIMDataButton,
   BIMDataIcon,
   BIMDataLoading,
-  BIMDataDropdownMenu
+  BIMDataDropdownMenu,
 } from "@bimdata/design-system";
 
 export default {
@@ -124,13 +167,14 @@ export default {
   },
   created() {
     console.log("=====CREATED=====", this.connected);
+
+  },
+  mounted() {
+    console.log("=====MOUNTED=====", this.connected);
     this.$viewer.globalContext.hub.once("3d-model-loaded", () => {
       console.log("=====MODEL LOADED=====");
       this.getProjectName();
     });
-  },
-  mounted() {
-    console.log("=====MOUNTED=====", this.connected);
     this.$viewer.localContext.registerShortcut({
       name: "admin",
       key: "$",
@@ -147,6 +191,9 @@ export default {
     this.$viewer.localContext.unregisterShortcut("admin");
   },
   methods: {
+    initrule() {
+      this.$emit("reflect-connected-method", "");
+    },
     activatedModeAdmin() {
       console.log("======ADMIN=====");
 
@@ -248,17 +295,18 @@ export default {
           .then(response => response.json())
           .then(async result => {
             this.projects = result;
+            const project_current = this.projects.find(
+              x => x.name === this.getProjectName()
+            );
+            console.log("project_current ", project_current);
 
-            if (this.projects.length === 0) {
+            if (project_current == null || this.projects.length === 0) {
               console.log("=====INIT=====");
               await this.initProject();
               this.active_initialisation = true;
             } else {
               this.active_initialisation = false;
               console.log("=====NOT INIT=====");
-              const project_current = this.projects.find(
-                x => x.name === this.getProjectName()
-              );
               this.project_id = project_current._id;
               console.log("this.project_id ", this.project_id);
               console.log("=====PROJECTS=====", this.projects.length);
