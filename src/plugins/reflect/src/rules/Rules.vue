@@ -56,7 +56,7 @@
       @update:modelValue="testLark"
     ></BIMDataSearch>
     <!--    <AddruleReflect-->
-    <!--      v-show="activeAddrule"-->
+    <!--      v-show="activeAddRule"-->
     <!--      v-on:rule-method="updateParent"-->
     <!--      :access_token="access_token"-->
     <!--    />-->
@@ -75,7 +75,7 @@
       itemWidth="250px"
       rowGap="6px"
       columnGap="18px"
-      v-show="!activeAddrule"
+      v-show="!activeAddRule"
     >
       <div
         class="m-6"
@@ -196,7 +196,7 @@ export default {
       viewer2dPlugin: null,
       queryString: '.IfcSpace[Name *= "CH1"]',
       shareUrl: null,
-      activeAddrule: null,
+      activeAddRule: null,
       isLoading: false,
       loading: false,
       selectedItem: null,
@@ -243,7 +243,6 @@ export default {
         true: () => true,
         false: () => false,
       };
-
       const parser = get_parser({ transformer });
       function ignore_errors(e) {
         // This function gets called whenever there is a parse error
@@ -262,12 +261,21 @@ export default {
         return false;
       }
       // console.log(parser.parse(item, null, ignore_errors));
-      const lark_object = parser.parse(item, null, ignore_errors);
-      const class_selector =  this.recurse_lark(lark_object);
-      console.log(class_selector);
+      try {
+        const lark_object = parser.parse(item, null, ignore_errors);
+        const class_selector =  this.recurse_lark(lark_object);
+        console.log(class_selector);
+      } catch (error) {
+        console.error(error);
+        // expected output: ReferenceError: nonExistentFunction is not defined
+        // Note - error messages will vary depending on browser
+      }
+
 
     },
     recurse_lark(lark_object) {
+      // give me leboncoin a renaut car
+
       console.log(lark_object);
       let class_selector;
       if (lark_object.data === "class_selector") {
@@ -391,7 +399,7 @@ export default {
     },
 
     updateParent(rule_created) {
-      this.activeAddrule = !rule_created;
+      this.activeAddRule = !rule_created;
     },
 
     headers() {
