@@ -15,36 +15,35 @@
     </BIMDataSearchAutocomplete>
     <BIMDataSelect
       class="m-24"
-      v-show="modeAdmin"
       :multi="true"
       width="200px"
       label="Selector output properties"
       :options="arrayProperties"
       v-model="selectionProperties"
     />
-    <BIMDataDropdownList
-      :list="arrayProperties"
-      :perPage="10"
-      elementKey="dropdown"
-      :disabled="false"
-      :closeOnElementClick="false"
-      @element-click="onPropertiesClick"
-    >
-      <template #header> Properties </template>
-      <template #element="{ element, close }">
-        <div class="flex items-center">
-          <BIMDataCheckbox
-            size="xxxs"
-            class="fill-primary"
-            margin="0 6px 0 0"
-            :state="false"
-            :modelValue="selectedItem === element"
-            @update:modelValue="updateValue(element, $event)"
-          />
-          <span @click="close()">{{ element }}</span>
-        </div>
-      </template>
-    </BIMDataDropdownList>
+    <!--    <BIMDataDropdownList-->
+    <!--      :list="arrayProperties"-->
+    <!--      :perPage="10"-->
+    <!--      elementKey="dropdown"-->
+    <!--      :disabled="false"-->
+    <!--      :closeOnElementClick="false"-->
+    <!--      @element-click="onPropertiesClick"-->
+    <!--    >-->
+    <!--      <template #header> Properties </template>-->
+    <!--      <template #element="{ element, close }">-->
+    <!--        <div class="flex items-center">-->
+    <!--          <BIMDataCheckbox-->
+    <!--            size="xxxs"-->
+    <!--            class="fill-primary"-->
+    <!--            margin="0 6px 0 0"-->
+    <!--            :state="false"-->
+    <!--            :modelValue="selectedItem === element"-->
+    <!--            @update:modelValue="updateValue(element, $event)"-->
+    <!--          />-->
+    <!--          <span @click="close()">{{ element }}</span>-->
+    <!--        </div>-->
+    <!--      </template>-->
+    <!--    </BIMDataDropdownList>-->
     <BIMDataSearch
       width="100%"
       :placeholder="$t('ReflectPlugin.search')"
@@ -162,8 +161,8 @@ export default {
     BIMDataTable,
     BIMDataSelect,
     BIMDataSpinner,
-    BIMDataDropdownList,
-    BIMDataCheckbox,
+    // BIMDataDropdownList,
+    // BIMDataCheckbox,
   },
   props: {
     active_initialisation: { type: Boolean, required: true },
@@ -223,8 +222,9 @@ export default {
   mounted() {
     console.log("=======RULES MOUNTED======");
     this.arrayTypesIfc = this.getTypeOfUuids();
-    console.log("=======RULES MOUNTED======");
+    console.log("=======RULES IFC TYPES======", this.arrayTypesIfc);
 
+    console.log("=======RULES MOUNTED======");
   },
   onOpen() {
     // this.rules = this.getrules();
@@ -233,18 +233,18 @@ export default {
   methods: {
     testLark(item) {
       let transformer = {
-        number: ([n])  => parseFloat(n.value),
-        string: ([s])  => s.value.slice(1, -1),
-        array:  Array.from,
-        pair:   Array.from,
+        number: ([n]) => parseFloat(n.value),
+        string: ([s]) => s.value.slice(1, -1),
+        array: Array.from,
+        pair: Array.from,
         object: Object.fromEntries,
 
         null: () => null,
         true: () => true,
         false: () => false,
-      }
+      };
 
-      const parser = get_parser({transformer});
+      const parser = get_parser({ transformer });
       function ignore_errors(e) {
         // This function gets called whenever there is a parse error
 
@@ -261,12 +261,34 @@ export default {
         // Unhandled error. Will stop parse and raise exception
         return false;
       }
-      console.log(parser.parse(item, null, ignore_errors));
+      // console.log(parser.parse(item, null, ignore_errors));
+      const lark_object = parser.parse(item, null, ignore_errors);
+      const class_selector =  this.recurse_lark(lark_object);
+      console.log(class_selector);
+
+    },
+    recurse_lark(lark_object) {
+      console.log(lark_object);
+      let class_selector;
+      if (lark_object.data === "class_selector") {
+        console.log(lark_object.children[0].value);
+        class_selector =lark_object.children[0].value;
+        this.handleProperties(class_selector);
+
+        return class_selector;
+      }
+      if (lark_object.children) {
+        return this.recurse_lark(lark_object.children[0]);
+      }
+
     },
     getTypeOfUuids() {
       const arrayTypes = _.uniq(
         this.$viewer.state.objects.map(object => this.toIfcType(object.type))
       );
+      console.log("=======RULES IFC TYPES====== ", this.$viewer.state.objects);
+      console.log("=======RULES IFC TYPES====== ", arrayTypes);
+
       return arrayTypes.map((element, index) => {
         const obj3 = {};
         obj3["id"] = index;
@@ -274,6 +296,12 @@ export default {
         // obj3["text"] = element;
 
         return obj3;
+      });
+    },
+    toIfcType(s) {
+      s = "Ifc_" + s;
+      return s.replace(/([-_][a-z])/gi, $1 => {
+        return $1.toUpperCase().replace("-", "").replace("_", "");
       });
     },
     onItemClick($event) {
@@ -284,7 +312,7 @@ export default {
     async handleProperties(title) {
       this.loading = true;
       this.arrayProperties = await this.getProperties(title);
-      if (this.arrayProperties.length > 0) {
+      if (this.arrayProperties && this.arrayProperties.length > 0) {
         this.properties = this.arrayProperties.map((element, index) => {
           const obj3 = {};
           obj3["id"] = index;
@@ -296,10 +324,10 @@ export default {
       console.log("=======GET PROPERTIES======", this.properties);
       this.loading = false;
     },
-    async getProperties(title) {
+    async getProperties(type) {
       console.log("=======GET PROPERTIES======");
       let paramsString = "";
-      paramsString = "?" + new URLSearchParams({ ifc_type: title });
+      paramsString = "?" + new URLSearchParams({ ifc_type: type });
 
       return await fetch(
         `${this.reflect_url}/reflect/project/${this.projectId}/properties` +
@@ -364,13 +392,6 @@ export default {
 
     updateParent(rule_created) {
       this.activeAddrule = !rule_created;
-    },
-
-    toIfcType(s) {
-      s = "Ifc_" + s;
-      return s.replace(/([-_][a-z])/gi, $1 => {
-        return $1.toUpperCase().replace("-", "").replace("_", "");
-      });
     },
 
     headers() {

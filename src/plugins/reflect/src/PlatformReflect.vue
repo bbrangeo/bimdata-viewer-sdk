@@ -117,7 +117,7 @@
       </div>
     </div>
     <div v-if="loading" class="loading">
-      <BIMDataLoading message="Transfert des inforamtions"/>
+      <BIMDataLoading message="Transfert des informations"/>
     </div>
   </div>
 </template>
