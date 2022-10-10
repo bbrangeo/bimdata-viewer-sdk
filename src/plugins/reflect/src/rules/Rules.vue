@@ -7,6 +7,7 @@
       @item-click="onItemClick"
       @all-results-click="onAllResultsClick"
       :loading="isLoading"
+      :autoclear="false"
       class="m-t-24 bimdata-search-autocomplete bimdata-search-autocomplete__input"
     >
       <template #logoPlaceholder>
@@ -14,6 +15,7 @@
       </template>
     </BIMDataSearchAutocomplete>
     <BIMDataSelect
+      v-show="modeAdmin"
       class="m-24"
       :multi="true"
       width="200px"
@@ -45,6 +47,7 @@
     <!--      </template>-->
     <!--    </BIMDataDropdownList>-->
     <BIMDataSearch
+      v-show="modeAdmin"
       width="100%"
       :placeholder="$t('ReflectPlugin.search')"
       class="bimdata-search-bar__radius bimdata-search-bar__secondary"
@@ -55,22 +58,18 @@
       @clear="clear"
       @update:modelValue="testLark"
     ></BIMDataSearch>
+<!--    <BIMDataModelPreview-->
+<!--      type="3d"-->
+<!--      :width="300"-->
+<!--      :height="300"-->
+<!--      backgroundColor="var(&#45;&#45;color-silver-light)"-->
+<!--    />-->
     <!--    <AddruleReflect-->
     <!--      v-show="activeAddRule"-->
     <!--      v-on:rule-method="updateParent"-->
     <!--      :access_token="access_token"-->
     <!--    />-->
-    <BIMDataButton
-      icon
-      @click="clearViewer"
-      color="primary"
-      fill
-      rounded
-      size="xxs"
-      class="m-t-6 bimdata-btn__fill bimdata-btn__fill--primary bimdata-btn__radius"
-    >
-      <BIMDataIcon name="reset" size="xxs" />
-    </BIMDataButton>
+
     <BIMDataResponsiveGrid
       itemWidth="250px"
       rowGap="6px"
@@ -99,22 +98,49 @@
         </BIMDataCard>
       </div>
     </BIMDataResponsiveGrid>
+
+    <div class="button" id="my_centered_buttons">
+      <BIMDataButton
+        icon
+        @click="handleClickPackage"
+        color="secondary"
+        outline
+
+        fill
+        size="xs"
+        class="m-6 m-r-18"
+      >
+        <BIMDataIcon size="xs" name="chevron" margin="0 2px 0 0" />
+        <span>Lancement RIVP</span>
+      </BIMDataButton>
+      <BIMDataButton
+        icon
+        @click="clearViewer"
+        color="high"
+        outline
+        size="xs"
+        class="m-6 m-r-18"
+      >
+        <BIMDataIcon name="reset" size="xs" margin="0 2px 0 0" />
+        <span>Etat initial</span>
+      </BIMDataButton>
+    </div>
     <BIMDataTable
       @row-selected="onObjectSelected"
       @row-unselected="onObjectDeSelected"
       @all-selected="onObjectsSelected"
       @all-unselected="onObjectsDeSelected"
-      :columns="columns"
-      :rows="rows"
+      :columns="columnsData"
+      :rows="rowsData"
       :rowHeight="20"
       :tableWidth="100"
-      :selectable="true"
+      :selectable="false"
       :paginated="true"
-      :perPage="8"
-      placeholder="Empty"
+      :perPage="12"
+      placeholder="Vide"
       v-show="showing_table && !loading"
       style="overflow: auto; font-size: 0.7rem"
-      class="bimdata-table__container"
+      class="m-t-12 bimdata-table__container"
     >
       <!--    <template #cell-rule="{ row }">-->
       <!--      <ViewLinkCell :rule="row" />-->
@@ -123,8 +149,21 @@
       <!--        <ViewLinkCell :rule="rule" />-->
       <!--      </template>-->
     </BIMDataTable>
+    <BIMDataButton
+      v-show="showing_table && !loading"
+      icon
+      @click="handleXLSDownload"
+      color="primary"
+      fill
+      rounded
+      size="xxs"
+      class="m-t-6 bimdata-btn__fill bimdata-btn__fill--primary bimdata-btn__radius"
+    >
+      <BIMDataIcon name="export" fill size="xxs" />
+
+    </BIMDataButton>
     <div v-show="loading" class="loading">
-      <BIMDataSpinner message="Calculate ..." />
+      <BIMDataBigSpinner size="xs" message="Calculate ..." />
     </div>
   </div>
 </template>
@@ -138,16 +177,29 @@ import {
   BIMDataSearchAutocomplete,
   BIMDataTable,
   BIMDataSpinner,
-  BIMDataDropdownList,
-  BIMDataCheckbox,
+  BIMDataBigSpinner,
+  // BIMDataDropdownList,
+  // BIMDataCheckbox,
   BIMDataSelect,
-  BIMDataSearch,
+  BIMDataSearch
+  // BIMDataModelPreview
 } from "@bimdata/design-system";
-// import AddruleReflect from "@/plugins/reflect/src/rules/AddruleReflect";
-// import ViewLinkCell from "@/plugins/reflect/src/rules/ViewLinkCell";
 import _ from "lodash";
 import state from "../state";
 import { get_parser, Token } from "@/plugins/reflect/src/my_parser.js";
+import fileSaver from "file-saver";
+import * as ExcelImport from "exceljs/dist/exceljs.min.js";
+import autofitColumns from "@/plugins/reflect/src/functions_exceljs";
+import iconTipee from "@/plugins/reflect/assets/tipee.png";
+import iconReflect from "@/plugins/reflect/assets/reflect.png";
+import iconRivp from "@/plugins/reflect/assets/rivp.png";
+
+let ExcelJS;
+if (ExcelImport.default) {
+  ExcelJS = ExcelImport.default;
+} else {
+  ExcelJS = ExcelImport;
+}
 
 export default {
   name: "Rules",
@@ -160,7 +212,8 @@ export default {
     BIMDataSearch,
     BIMDataTable,
     BIMDataSelect,
-    BIMDataSpinner,
+    BIMDataBigSpinner
+    // BIMDataModelPreview
     // BIMDataDropdownList,
     // BIMDataCheckbox,
   },
@@ -200,12 +253,13 @@ export default {
       isLoading: false,
       loading: false,
       selectedItem: null,
-      rows: [],
-      columns: [],
+      rowsData: [],
+      columnsData: [],
       properties: [],
       selectionProperties: ["BaseQuantities.*"],
       arrayProperties: [],
       arrayTypesIfc: [],
+      fileNameExport: "Results_",
     };
   },
   computed: {
@@ -263,15 +317,13 @@ export default {
       // console.log(parser.parse(item, null, ignore_errors));
       try {
         const lark_object = parser.parse(item, null, ignore_errors);
-        const class_selector =  this.recurse_lark(lark_object);
+        const class_selector = this.recurse_lark(lark_object);
         console.log(class_selector);
       } catch (error) {
         console.error(error);
         // expected output: ReferenceError: nonExistentFunction is not defined
         // Note - error messages will vary depending on browser
       }
-
-
     },
     recurse_lark(lark_object) {
       // give me leboncoin a renaut car
@@ -280,7 +332,7 @@ export default {
       let class_selector;
       if (lark_object.data === "class_selector") {
         console.log(lark_object.children[0].value);
-        class_selector =lark_object.children[0].value;
+        class_selector = lark_object.children[0].value;
         this.handleProperties(class_selector);
 
         return class_selector;
@@ -288,7 +340,6 @@ export default {
       if (lark_object.children) {
         return this.recurse_lark(lark_object.children[0]);
       }
-
     },
     getTypeOfUuids() {
       const arrayTypes = _.uniq(
@@ -316,6 +367,305 @@ export default {
       console.log($event);
       this.selectionProperties = [];
       this.handleProperties($event.title);
+    },
+    async handleXLSDownload() {
+      this.loading = true;
+
+      console.log("columnsData", this.columnsData);
+      console.log("rowsData", this.rowsData);
+
+      let workbook = new ExcelJS.Workbook();
+      workbook.creator = "Reflect";
+      workbook.lastModifiedBy = "Reflect";
+      workbook.created = new Date();
+      workbook.modified = new Date();
+      workbook.lastPrinted = new Date();
+      workbook.calcProperties.fullCalcOnLoad = true;
+      console.log("this.rowsData", this.rowsData);
+
+      const uniqueRule = [...new Set(this.rowsData.map(item => item.numero))];
+      console.log("uniqueRule", uniqueRule);
+
+      let ws = workbook.addWorksheet("REFLECT", {
+        headerFooter: { firstHeader: "REFLECT", firstFooter: "REFLECT EXPORT" },
+        properties: { tabColor: { argb: "FF00FF00" } },
+      });
+
+      const getData = async url => {
+        // const res = await axios.get(window.location.origin + url, { responseType: 'arraybuffer' });
+        const res = await fetch(window.location.origin + url,).then(response => response.arrayBuffer());
+        return res;
+      };
+
+      console.log("iconTipee", iconTipee);
+
+      // add image to workbook by buffer
+      const imageTipee = workbook.addImage({
+        buffer: getData(iconTipee),
+        // filename: iconTipee,
+        extension: "png",
+      });
+
+      const imageReflect = workbook.addImage({
+        buffer: getData(iconReflect),
+        extension: 'png',
+      });
+
+      const imageRivp = workbook.addImage({
+        buffer: getData(iconRivp),
+        extension: 'png',
+      });
+
+      // insert an image over A1:D6
+      ws.addImage(imageTipee, "A1:D6");
+      ws.addImage(imageReflect, 'G1:K6');
+      ws.addImage(imageRivp, 'M1:Q6');
+
+      ws.addConditionalFormatting({
+        ref: 'C18:O35',
+        rules: [
+          {
+                 type: 'expression',
+                 formulae: ['MOD(ROW()+COLUMN(),1)=0'],
+                 style: {
+                      fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFD9D9D9' } },
+                      border: { bottom: { style: 'medium', color: { argb: 'FFD9D9D9' } } },
+                      font: { bold: true },
+                 },
+          }
+        ]
+      })
+
+      const uniqueWs = uniqueRule.map(item => {
+        console.log("item", item);
+        const name_ws = "Numero_" + item;
+        // Create worksheets with headers and footers
+        let ws = workbook.addWorksheet(name_ws, {
+          headerFooter: {
+            firstHeader: `${name_ws}`,
+            firstFooter: `${name_ws} EXPORT`,
+          },
+        });
+
+        // Set the left footer to 18px and italicize. Result: "Page 2 of 16"
+        ws.headerFooter.oddFooter = "&LPage &P of &N";
+
+        // Set the left, center, and right text of the footer. Result: “Exceljs” in the footer left. “demo.xlsx” in the footer center. “Page 2” in the footer right
+        ws.headerFooter.oddFooter = "&LREFLECT&C&F&RPage &P";
+
+        // add a checkerboard pattern to A1:E7 based on row + col being even or odd
+        ws.addConditionalFormatting({
+          ref: "A2:BP1016",
+          rules: [
+            // {
+            //      type: 'expression',
+            //      formulae: ['MOD(ROW()+COLUMN(),1)=0'],
+            //      style: {
+            //           fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFD9D9D9' } },
+            //           border: { bottom: { style: 'medium', color: { argb: 'FFD9D9D9' } } },
+            //           font: { bold: true , },
+            //      },
+            // },
+            // {
+            //      type: 'expression',
+            //      formulae: ['MOD(ROW()+COLUMN(),1)=0'],
+            //      style: {
+            //           fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFD9D9D9' } },
+            //           border: { bottom: { style: 'medium', color: { argb: 'FFD9D9D9' } } },
+            //           font: { bold: true , },
+            //      },
+            // },
+            // {
+            //      type: 'colorScale',
+            //      cfvo: ['true','false'],
+            //      style: {fill: {type: 'pattern', pattern: 'solid', bgColor: {argb: 'FF00FF00'}}},
+            // },
+            {
+              type: "iconSet",
+              iconSet: "3TrafficLights",
+              cfvo: [
+                { type: "percent", value: 0 },
+                { type: "num", value: "COLUMN()" },
+                // { type: 'num', value: 'ROW()' },
+              ],
+            },
+            // {
+            //      type: 'iconSet',
+            //      iconSet: '5Arrows',
+            //      cfvo: [
+            //           { type: 'percent', value: 0 },
+            //           { type: 'percent', value: 20 },
+            //           { type: 'percent', value: 40 },
+            //           { type: 'percent', value: 60 },
+            //           { type: 'percent', value: 80 },
+            //      ],
+            // },
+            {
+              type: "colorScale",
+              cfvo: [{ type: "min" }, { type: "max" }],
+              color: [{ argb: "FFF8696B" }, { argb: "FF63BE7B" }],
+            },
+            // {
+            //      type: 'containsText',
+            //      operator: 'containsBlanks',
+            //      style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: '0000FF' }, fgColor: { argb: 'FFFFFF' } } },
+            // },
+            {
+              type: "containsText",
+              operator: "containsText",
+              text: "true",
+              style: {
+                fill: {
+                  type: "pattern",
+                  pattern: "solid",
+                  bgColor: { argb: "00FF00" },
+                  fgColor: { argb: "FFFFFF" },
+                },
+              },
+            },
+            {
+              type: "containsText",
+              operator: "containsText",
+              text: "false",
+              style: {
+                fill: {
+                  type: "pattern",
+                  pattern: "solid",
+                  bgColor: { argb: "FF0000" },
+                  fgColor: { argb: "FFFFFF" },
+                },
+              },
+            },
+          ],
+        });
+
+        return { name: item, ws: ws };
+      });
+
+      console.log("uniqueWs", uniqueWs);
+
+      const columnsFormat = [];
+      const toDownload = this.columnsData.map(r => {
+        const exelCol = {
+          header: r.label,
+          width: Math.max(20, r.label.length + 2),
+        };
+        if (r.downloadFormatter !== null) {
+          columnsFormat.push(exelCol);
+        }
+        return {
+          formatter: r.downloadFormatter,
+          name: r.label,
+          exelCol: exelCol,
+        };
+      });
+
+      console.log("toDownload", toDownload);
+
+      const rows = [];
+      // Sanitize data that is impossible to serialize
+      this.rowsData.forEach(r => {
+        // console.log("r", r);
+
+        const row = [];
+        // r.map((c, i) => {
+        for (const [k, v] of Object.entries(r)) {
+          // console.log("v", v);
+
+          // const cData = toDownload[i];
+          // if (cData.formatter === null) {
+          //   return;
+          // }
+
+          let formatter = function (d) {
+            // if (typeof d === "object") {
+            //   return "";
+            // }
+            if (typeof d == "boolean") {
+              return d === true ? "true" : "false";
+            }
+            return d || "";
+          };
+          const formatted = formatter(v);
+          // cData.exelCol.width = Math.max(
+          //   cData.exelCol.width,
+          //   formatted.toString().length + 2
+          // );
+          console.log("formatted", formatted);
+          row.push(formatted);
+        }
+
+        rows.push(row);
+      });
+      console.log("rows", rows);
+
+      rows.forEach(r => {
+        const ws_current = uniqueWs.find(x => x.name === r[1]);
+        // console.log('formatted', r);
+        // ws_current.ws.addRow({id: 1, name: 'John Doe', dob: new Date(1970,1,1)});
+        // ws_current.ws.addRow({id: 2, name: 'Jane Doe', dob: new Date(1965,1,7)});
+
+        ws_current.ws.addRow(r);
+      });
+
+      uniqueWs.forEach(unique_worksheet => {
+        autofitColumns(unique_worksheet.ws);
+
+        unique_worksheet.ws.columns = columnsFormat;
+
+        unique_worksheet.ws.eachRow(r =>
+          r.eachCell(cell => {
+            // const numFmtStr = '0,00';
+            // cell.numFmt = numFmtStr;
+            cell.border = {
+              top: { style: "thin" },
+              left: { style: "thin" },
+              bottom: { style: "thin" },
+              right: { style: "thin" },
+            };
+            cell.font = {
+              bold: false,
+              name: "Arial Black",
+              color: { argb: "000000" },
+              family: 2,
+              size: 12,
+            };
+          })
+        );
+        // Apply styles to the header row
+        unique_worksheet.ws.getRow(1).eachCell(cell => {
+          cell.fill = {
+            type: "pattern",
+            pattern: "lightGrid",
+            fgColor: { argb: "d3d3d3" },
+            bgColor: { argb: "ffffff" },
+          };
+          cell.font = {
+            bold: true,
+            name: "Arial Black",
+            color: { argb: "000000" },
+            family: 2,
+            size: 14,
+          };
+        });
+      });
+
+      // workbook.xlsx.writeBuffer().then((b) => FileSaver.saveAs(new Blob([b], { type: 'application/octet-stream' }), 'Report.xlsx'));
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      fileSaver.saveAs(
+        blob,
+        this.fileNameExport +
+          new Date().getHours() +
+          ":" +
+          new Date().getMinutes() +
+          ":" +
+          new Date().getSeconds() +
+          ".xlsx"
+      );
+      this.loading = false;
     },
     async handleProperties(title) {
       this.loading = true;
@@ -381,10 +731,13 @@ export default {
     },
     clearData() {
       this.result_run_rule = [];
-      this.rows = [];
-      this.columns = [];
+      this.rowsData = [];
+      this.columnsData = [];
     },
     async clearViewer() {
+      this.rowsData = [];
+      this.columnsData = [];
+
       if (this.difference()) {
         this.$viewer.state.showObjectsByUuids(this.difference());
       }
@@ -480,11 +833,11 @@ export default {
 
     initTableResults(options) {
       if (options.reset) {
-        this.rows = [];
-        this.columns = [];
+        this.rowsData = [];
+        this.columnsData = [];
       }
 
-      this.rows = this.result_run_rule
+      this.rowsData = this.result_run_rule
         .map(rule => {
           const name_rule = rule.rule.name || "Query";
           return rule.result.map(elem => {
@@ -503,8 +856,8 @@ export default {
 
       let keys = [];
 
-      if (this.rows.length !== 0) {
-        this.rows.map(elem => {
+      if (this.rowsData.length !== 0) {
+        this.rowsData.map(elem => {
           return Object.keys(elem).forEach(item => {
             keys.push(item);
             return item;
@@ -520,7 +873,7 @@ export default {
             // width: "20px",
             align: "center",
           };
-          this.columns.push(innerObj);
+          this.columnsData.push(innerObj);
         });
       }
 
@@ -608,7 +961,82 @@ export default {
         }
       }
     },
+    async handleClickPackage() {
+      this.loading = true;
 
+      await this.clearViewer();
+      this.result_run_rule = await this.runPackage();
+      if (this.result_run_rule.length > 0) {
+        console.log(
+          "=======RUN QUERY RESULT RUN======",
+          this.result_run_rule
+        );
+        // console.log("=======RUN UUIDS======", this.getUuids());
+        // console.log("=======RUN DIFF======", this.difference());
+        this.reflectElementUuids = [];
+        this.result_run_rule.map(elem => {
+          // search guid in object
+          let filtered_keys = function (obj, filter) {
+            let keys = [];
+            for (let [key, value] of Object.entries(obj)) {
+              if (obj.hasOwnProperty(key) && filter.test(key)) {
+                keys.push(value);
+              }
+            }
+            return keys;
+          };
+
+          elem.result.map(result => {
+            this.reflectElementUuids.push(
+              filtered_keys(result, /guid|GlobalId|guids/)[0]
+            );
+          });
+        });
+
+        console.log("=======RUN QUERY======", this.reflectElementUuids);
+
+        this.initTableResults({ reset: false });
+
+        this.viewer3dPlugin.fitViewObjects(this.reflectElementUuids);
+        this.$viewer.state.hideObjectsByUuids(this.difference());
+
+        // this.$viewer.state.highlightObjectsByUuids(
+        //   this.reflectElementUuids
+        // );
+        // this.$viewer.state.highlightObjectsByUuids(
+        //   this.difference()
+        // );
+        this.$viewer.state.colorizeObjectsByUuids(
+          this.reflectElementUuids,
+          this.color_tipee
+        );
+        // this.$viewer.state.selectObjectsByUuids(this.reflectElementUuids);
+        // this.$viewer.state.hub.on(
+        //   "objects-hidden",
+        //   ({ objects }) => {
+        //     console.log("Do something: ", objects);
+        //   },
+        //   {
+        //     getLastEvent: true, // immediately trigger the callback with the last loaded ifcs if they exists.
+        //   }
+        // );
+        this.loading = false;
+      }
+      this.loading = false;
+
+    },
+    async runPackage() {
+      return await fetch(
+        `${this.reflect_url}/reflect/project/${this.projectId}/package`,
+        {
+          headers: this.headers(),
+          body: JSON.stringify({ content: 'toto' }),
+          method: "POST",
+        }
+      )
+        .then(response => response.json())
+        .catch(error => console.log("====ERROR RUN QUERY====", error));
+    },
     async runQuery(queryBuilder) {
       console.log("=======RUN QUERY======", queryBuilder);
       return await fetch(
@@ -628,6 +1056,15 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+.button {
+  position: relative;
+  text-align: center;
+  display: flex; justify-content: center;
+}
+.loading{
+  display: flex;
+  justify-content: center;
+}
 .rule-cards {
   padding: 0;
   display: flex;

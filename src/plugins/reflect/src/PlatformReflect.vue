@@ -54,7 +54,6 @@
                 <span>Create a rule</span>
               </BIMDataButton>
             </div>
-
             <BIMDataButton
               v-show="modeAdmin"
               width="32px"
