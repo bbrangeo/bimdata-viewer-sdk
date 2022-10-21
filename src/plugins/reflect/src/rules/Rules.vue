@@ -58,12 +58,12 @@
       @clear="clear"
       @update:modelValue="testLark"
     ></BIMDataSearch>
-<!--    <BIMDataModelPreview-->
-<!--      type="3d"-->
-<!--      :width="300"-->
-<!--      :height="300"-->
-<!--      backgroundColor="var(&#45;&#45;color-silver-light)"-->
-<!--    />-->
+    <!--    <BIMDataModelPreview-->
+    <!--      type="3d"-->
+    <!--      :width="300"-->
+    <!--      :height="300"-->
+    <!--      backgroundColor="var(&#45;&#45;color-silver-light)"-->
+    <!--    />-->
     <!--    <AddruleReflect-->
     <!--      v-show="activeAddRule"-->
     <!--      v-on:rule-method="updateParent"-->
@@ -105,7 +105,6 @@
         @click="handleClickPackage"
         color="secondary"
         outline
-
         fill
         size="xs"
         class="m-6 m-r-18"
@@ -160,7 +159,6 @@
       class="m-t-6 bimdata-btn__fill bimdata-btn__fill--primary bimdata-btn__radius"
     >
       <BIMDataIcon name="export" fill size="xxs" />
-
     </BIMDataButton>
     <div v-show="loading" class="loading">
       <BIMDataBigSpinner size="xs" message="Calculate ..." />
@@ -181,7 +179,7 @@ import {
   // BIMDataDropdownList,
   // BIMDataCheckbox,
   BIMDataSelect,
-  BIMDataSearch
+  BIMDataSearch,
   // BIMDataModelPreview
 } from "@bimdata/design-system";
 import _ from "lodash";
@@ -212,7 +210,7 @@ export default {
     BIMDataSearch,
     BIMDataTable,
     BIMDataSelect,
-    BIMDataBigSpinner
+    BIMDataBigSpinner,
     // BIMDataModelPreview
     // BIMDataDropdownList,
     // BIMDataCheckbox,
@@ -383,17 +381,22 @@ export default {
       workbook.calcProperties.fullCalcOnLoad = true;
       console.log("this.rowsData", this.rowsData);
 
-      const uniqueRule = [...new Set(this.rowsData.map(item => item.numero))];
+      const uniqueRule = [
+        ...new Set(this.rowsData.map(item => item.code_regle)),
+      ];
       console.log("uniqueRule", uniqueRule);
 
       let ws = workbook.addWorksheet("REFLECT", {
         headerFooter: { firstHeader: "REFLECT", firstFooter: "REFLECT EXPORT" },
-        properties: { tabColor: { argb: "FF00FF00" } },
+        properties: { tabColor: { argb: "FF63BE7B" } },
+        // pageSetup: { fitToPage: true, fitToHeight: 5, fitToWidth: 36.67 },
       });
 
       const getData = async url => {
         // const res = await axios.get(window.location.origin + url, { responseType: 'arraybuffer' });
-        const res = await fetch(window.location.origin + url,).then(response => response.arrayBuffer());
+        const res = await fetch(window.location.origin + url).then(response =>
+          response.arrayBuffer()
+        );
         return res;
       };
 
@@ -408,37 +411,96 @@ export default {
 
       const imageReflect = workbook.addImage({
         buffer: getData(iconReflect),
-        extension: 'png',
+        extension: "png",
       });
 
       const imageRivp = workbook.addImage({
         buffer: getData(iconRivp),
-        extension: 'png',
+        extension: "png",
       });
 
       // insert an image over A1:D6
-      ws.addImage(imageTipee, "A1:D6");
-      ws.addImage(imageReflect, 'G1:K6');
-      ws.addImage(imageRivp, 'M1:Q6');
+      ws.addImage(imageRivp, "A1:B2");
+      // ws.addImage(imageTipee, "M1:Q6");
+      ws.addImage(imageReflect, "G1:H2");
 
-      ws.addConditionalFormatting({
-        ref: 'C18:O35',
-        rules: [
+      ws.mergeCells("C1:G1");
+      const C1 = ws.getCell("C1");
+      C1.value =
+        "CONTRÔLE DES MAQUETTES NUMERIQUES SUR LA BASE DU CAHIER DE PRECONISATIONS";
+      C1.style.font = {
+        bold: true,
+        color: { argb: "000000" },
+        family: 2,
+        size: 18,
+        name: "Calibri Light (En-têtes)",
+      };
+      C1.alignment = {
+        vertical: "middle",
+        horizontal: "center",
+        wrapText: true,
+        // shrinkToFit: true,
+      };
+
+      // ws.addConditionalFormatting({
+      //   ref: "C18:O35",
+      //   rules: [
+      //     {
+      //       type: "expression",
+      //       formulae: ["MOD(ROW()+COLUMN(),1)=0"],
+      //       style: {
+      //         fill: {
+      //           type: "pattern",
+      //           pattern: "solid",
+      //           bgColor: { argb: "FFD9D9D9" },
+      //         },
+      //         border: {
+      //           bottom: { style: "medium", color: { argb: "FFD9D9D9" } },
+      //         },
+      //         font: { bold: true },
+      //       },
+      //     },
+      //   ],
+      // });
+
+      // add a table to a sheet
+      ws.addTable({
+        name: "MyTable",
+        ref: "C18",
+        headerRow: true,
+        totalsRow: true,
+        style: {
+          theme: "TableStyleLight1",
+          showRowStripes: true,
+          font: {
+            bold: true,
+            color: { argb: "000000" },
+            family: 2,
+            size: 28,
+            name: "Calibri Light (En-têtes)",
+          },
+          // alignment: {
+          //   // wrapText: true
+          //   shrinkToFit: true,
+          // },
+        },
+        columns: [
+          { name: "numero_chapitre", filterButton: false, width: 40 },
+          { name: "titre", filterButton: false, width: 40 },
+          { name: "code_regle", filterButton: false, width: 40 },
           {
-                 type: 'expression',
-                 formulae: ['MOD(ROW()+COLUMN(),1)=0'],
-                 style: {
-                      fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFD9D9D9' } },
-                      border: { bottom: { style: 'medium', color: { argb: 'FFD9D9D9' } } },
-                      font: { bold: true },
-                 },
-          }
-        ]
-      })
+            name: "validation_finale",
+            filterButton: false,
+            width: 40,
+          },
+        ],
+        rows: this.validationGenerale.map(item => {
+          return Object.values(item);
+        }),
+      });
 
       const uniqueWs = uniqueRule.map(item => {
-        console.log("item", item);
-        const name_ws = "Numero_" + item;
+        const name_ws = item;
         // Create worksheets with headers and footers
         let ws = workbook.addWorksheet(name_ws, {
           headerFooter: {
@@ -518,7 +580,7 @@ export default {
                 fill: {
                   type: "pattern",
                   pattern: "solid",
-                  bgColor: { argb: "00FF00" },
+                  bgColor: { argb: "FF63BE7B" },
                   fgColor: { argb: "FFFFFF" },
                 },
               },
@@ -531,7 +593,7 @@ export default {
                 fill: {
                   type: "pattern",
                   pattern: "solid",
-                  bgColor: { argb: "FF0000" },
+                  bgColor: { argb: "FFF8696B" },
                   fgColor: { argb: "FFFFFF" },
                 },
               },
@@ -564,13 +626,12 @@ export default {
 
       const rows = [];
       // Sanitize data that is impossible to serialize
-      this.rowsData.forEach(r => {
-        // console.log("r", r);
-
+      this.rowsData.forEach((r, index) => {
         const row = [];
-        // r.map((c, i) => {
+        // row["id"]=index;
+
         for (const [k, v] of Object.entries(r)) {
-          // console.log("v", v);
+          console.log("k, v", k, v);
 
           // const cData = toDownload[i];
           // if (cData.formatter === null) {
@@ -584,29 +645,20 @@ export default {
             if (typeof d == "boolean") {
               return d === true ? "true" : "false";
             }
-            return d || "";
+            return d;
           };
           const formatted = formatter(v);
           // cData.exelCol.width = Math.max(
           //   cData.exelCol.width,
           //   formatted.toString().length + 2
           // );
-          console.log("formatted", formatted);
           row.push(formatted);
+          // row[k]=formatted;
         }
-
         rows.push(row);
       });
+
       console.log("rows", rows);
-
-      rows.forEach(r => {
-        const ws_current = uniqueWs.find(x => x.name === r[1]);
-        // console.log('formatted', r);
-        // ws_current.ws.addRow({id: 1, name: 'John Doe', dob: new Date(1970,1,1)});
-        // ws_current.ws.addRow({id: 2, name: 'Jane Doe', dob: new Date(1965,1,7)});
-
-        ws_current.ws.addRow(r);
-      });
 
       uniqueWs.forEach(unique_worksheet => {
         autofitColumns(unique_worksheet.ws);
@@ -625,7 +677,7 @@ export default {
             };
             cell.font = {
               bold: false,
-              name: "Arial Black",
+              name: "Calibri Light (Corps)",
               color: { argb: "000000" },
               family: 2,
               size: 12,
@@ -642,13 +694,21 @@ export default {
           };
           cell.font = {
             bold: true,
-            name: "Arial Black",
+            name: "Calibri Light (Corps)",
             color: { argb: "000000" },
             family: 2,
             size: 14,
           };
         });
       });
+
+      rows.forEach((row, index) => {
+        const ws_current = uniqueWs.find(x => x.name === row[3]);
+        // const ws_current = uniqueWs.find(x => x.name === row["code_regle"]);
+        ws_current.ws.addRow(row);
+
+      });
+
 
       // workbook.xlsx.writeBuffer().then((b) => FileSaver.saveAs(new Blob([b], { type: 'application/octet-stream' }), 'Report.xlsx'));
       const buffer = await workbook.xlsx.writeBuffer();
@@ -834,6 +894,8 @@ export default {
     initTableResults(options) {
       if (options.reset) {
         this.rowsData = [];
+        this.validationGenerale = [];
+
         this.columnsData = [];
       }
 
@@ -847,6 +909,18 @@ export default {
         .reduce(function (accumulateur, valeurCourante) {
           return accumulateur.concat(valeurCourante);
         });
+
+      this.validationGenerale = this.result_run_rule
+        .map(rule => {
+          return rule.validation_generale.map(elem => {
+            return { ...elem };
+          });
+        })
+        .reduce(function (accumulateur, valeurCourante) {
+          return accumulateur.concat(valeurCourante);
+        });
+
+      console.log("validationGenerale", this.validationGenerale);
 
       function remove_duplicates_es6(arr) {
         let s = new Set(arr);
@@ -967,10 +1041,7 @@ export default {
       await this.clearViewer();
       this.result_run_rule = await this.runPackage();
       if (this.result_run_rule.length > 0) {
-        console.log(
-          "=======RUN QUERY RESULT RUN======",
-          this.result_run_rule
-        );
+        console.log("=======RUN QUERY RESULT RUN======", this.result_run_rule);
         // console.log("=======RUN UUIDS======", this.getUuids());
         // console.log("=======RUN DIFF======", this.difference());
         this.reflectElementUuids = [];
@@ -1023,14 +1094,13 @@ export default {
         this.loading = false;
       }
       this.loading = false;
-
     },
     async runPackage() {
       return await fetch(
         `${this.reflect_url}/reflect/project/${this.projectId}/package`,
         {
           headers: this.headers(),
-          body: JSON.stringify({ content: 'toto' }),
+          body: JSON.stringify({ content: "toto" }),
           method: "POST",
         }
       )
@@ -1059,9 +1129,10 @@ export default {
 .button {
   position: relative;
   text-align: center;
-  display: flex; justify-content: center;
+  display: flex;
+  justify-content: center;
 }
-.loading{
+.loading {
   display: flex;
   justify-content: center;
 }
