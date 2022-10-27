@@ -498,6 +498,7 @@ export default {
         ],
       };
       await apiClient.createFullTopic(this.$viewer.api.projectId, data);
+
       try {
         await this.$viewer.globalContext.getPlugins("bcf")[0].fetchTopics();
       } catch (e) {

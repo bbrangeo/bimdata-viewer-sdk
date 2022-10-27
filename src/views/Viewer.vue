@@ -44,6 +44,7 @@ export default {
         accessToken: this.oidcAccessToken,
       },
       plugins: {
+        bcfManager: true,
         bcfKroqiPremiumService: {
           kroqiDomain: "pfptnbdev.io",
           organization: "cstb",

@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@bimdata/bimdata-api-client": "^5.0.0",
-    "@bimdata/viewer": "^1.9.0-rc.136",
+    "@bimdata/viewer": "^1.9.0-rc.173",
     "assert": "^2.0.0",
     "browserify-zlib": "^0.2.0",
     "oidc-client": "^1.11.5",
