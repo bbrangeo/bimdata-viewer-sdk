@@ -6,20 +6,20 @@
 
     <div class="reflect-connexion__content">
       <div class="justify-center justify-around">
-        <h3 class="color-primary">
-         REFLECT
+        <h2 class="p-2 color-primary">REFLECT</h2>
+        <h3 class="p-2 color-primary">
+          C’est un service de vérification de la qualité des maquettes numérique
+          IFC. Ce service permet de superviser une maquette numérique en
+          vérifiant sa conformité vis à vis d’un protocole préalablement défini
+          (cahier des charges). L’assistant vérifie la présence et l’emplacement
+          d’informations attendues dans la maquette à partir de règles.
         </h3>
-        <h4 class="color-primary">
-          C’est un service de vérification de la qualité des maquettes numérique IFC. Ce service permet de superviser une maquette
-          numérique en vérifiant sa conformité vis à vis d’un protocole préalablement défini (cahier des charges). L’assistant vérifie
-          la présence et l’emplacement d’informations attendues dans la maquette à partir de règles.
-        </h4>
-        <h4 class="color-secondary" >
+        <h2 class="p-2 color-secondary">
           {{ title }}
-        </h4>
+        </h2>
         <div class="m-48 p-30">
-          <BIMDataInput v-model="username" placeholder="Username" />
-          <BIMDataInput v-model="password" placeholder="Password" />
+          <BIMDataInput v-model="username" placeholder="Nom utilisateur Reflect" />
+          <BIMDataInput v-model="password" placeholder="Mot de passe Reflect" />
           <BIMDataButton
             width="100%"
             @click="connexion"
@@ -27,6 +27,35 @@
           >
             Connexion
           </BIMDataButton>
+        </div>
+        <BIMDataResponsiveGrid itemWidth="300px" rowGap="6px" columnGap="18px">
+          <div v-for="i of publicity" :key="i">
+            <img
+              v-bind:style="{'width':i.width,'height':i.height}"
+              v-bind:src="i.img_src"
+              alt=""
+              class="square-3d"
+            />
+          </div>
+        </BIMDataResponsiveGrid>
+
+        <div class="flex items-center justify-center">
+          <img src="../assets/favicon-32x32.png" alt="" class="square-3d" />
+          <span class="">Tipee 2022 </span>
+        </div>
+        <div class="flex items-center justify-center">
+          <span class="">
+            <a href="https://www.plateforme-tipee.com/"
+              >https://www.plateforme-tipee.com/</a
+            >
+          </span>
+        </div>
+        <div class="flex items-center justify-center">
+          <span class="">
+            <a href="https://reflect.plateforme-tipee.com/"
+              >https://reflect.plateforme-tipee.com/</a
+            >
+          </span>
         </div>
       </div>
     </div>
@@ -37,6 +66,7 @@
 import {
   BIMDataButton,
   BIMDataInput,
+  BIMDataResponsiveGrid,
 } from "@bimdata/design-system/components.js";
 import state from "@/plugins/reflect/src/state";
 
@@ -44,15 +74,30 @@ export default {
   name: "ConnectPlatformReflect",
   components: {
     BIMDataButton,
-    BIMDataInput
+    BIMDataInput,
+    BIMDataResponsiveGrid,
   },
   data() {
     return {
       title: "CONNEXION",
       connected: false,
       access_token: this.oauth,
-      password: "test_plugin",
-      username: "test_plugin",
+      password: "",
+      username: "",
+      publicity: [
+        {
+          img_src: require("../assets/reflect.png"),
+          width: "150px",
+          height: "50px",
+        },
+
+        {
+          img_src: require("../assets/tipee.png"),
+          width: "150px",
+          height: "50px",
+
+        }
+      ],
     };
   },
   emits: ["share-token"],
@@ -118,7 +163,7 @@ export default {
       this.setWithExpiry(
         "access_reflect",
         { access_token: json.access_token, connected: this.connected },
-        100000
+        1000000
       );
       this.$emit("reflect-connected-method", this.connected);
       this.$emit("close");

@@ -144,36 +144,36 @@ export default {
       this.projects = json.data;
       this.loading = false;
     },
-    async addProject() {
-      this.loading = true;
-      let formData = new FormData();
-      formData.append("name", this.projectName);
-      formData.append("description", this.projectDescription);
-
-      const res = await fetch(`${this.reflect_url}/reflect/project`, {
-        headers: this.headers(this.access_token),
-        body: formData,
-        method: "post",
-      });
-      const json = await res.json();
-      const id_current_project = json.data;
-
-      formData = new FormData();
-      formData.append("file", this.api_bimdata_url());
-
-      const add_ifc = await fetch(
-        `${this.reflect_url}/reflect/project/${id_current_project}/add_ifc`,
-        {
-          headers: this.headers(this.access_token),
-          body: formData,
-          method: "post",
-        }
-      );
-
-      this.loading = false;
-
-      await this.getProjects();
-    },
+    // async addProject() {
+    //   this.loading = true;
+    //   let formData = new FormData();
+    //   formData.append("name", this.projectName);
+    //   formData.append("description", this.projectDescription);
+    //
+    //   const res = await fetch(`${this.reflect_url}/reflect/project`, {
+    //     headers: this.headers(this.access_token),
+    //     body: formData,
+    //     method: "post",
+    //   });
+    //   const json = await res.json();
+    //   const id_current_project = json.data;
+    //
+    //   formData = new FormData();
+    //   formData.append("file", this.api_bimdata_url());
+    //
+    //   const add_ifc = await fetch(
+    //     `${this.reflect_url}/reflect/project/${id_current_project}/add_ifc`,
+    //     {
+    //       headers: this.headers(this.access_token),
+    //       body: formData,
+    //       method: "post",
+    //     }
+    //   );
+    //
+    //   this.loading = false;
+    //
+    //   await this.getProjects();
+    // },
 
     async getIfcs() {
       const apiClient = new this.$viewer.api.apiClient.IfcApi();

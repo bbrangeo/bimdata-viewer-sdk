@@ -83,7 +83,6 @@
           </div>
         </template>
       </BIMDataDropdownMenu>
-
       <div class="reflect__body">
         <transition name="fade" mode="out-in">
           <keep-alive>
@@ -97,23 +96,23 @@
           </keep-alive>
         </transition>
       </div>
-      <div class="reflect__footer">
-        <a
-          class="reflect__footer__link"
-          href="https://smarty.plateforme-tipee.com/apidocs#/"
-        >
-          {{ $t("ReflectPlugin.ReflectTab.footerLinkAPIReflect") }}
-        </a>
-        <a
-          class="reflect__footer__link"
-          href="https://reflect.plateforme-tipee.com/help/Syntaxe_des_requete_IFC_REFLECT.pdf"
-        >
-          {{ $t("ReflectPlugin.ReflectTab.footerLinkHelpReflect") }}
-        </a>
-        <span class="reflect__footer__text">
-          {{ $t("ReflectPlugin.ReflectTab.footerText") }}
-        </span>
-      </div>
+<!--      <div class="reflect__footer">-->
+<!--        <a-->
+<!--          class="reflect__footer__link"-->
+<!--          href="https://smarty.plateforme-tipee.com/apidocs#/"-->
+<!--        >-->
+<!--          {{ $t("ReflectPlugin.ReflectTab.footerLinkAPIReflect") }}-->
+<!--        </a>-->
+<!--        <a-->
+<!--          class="reflect__footer__link"-->
+<!--          href="https://reflect.plateforme-tipee.com/help/Syntaxe_des_requete_IFC_REFLECT.pdf"-->
+<!--        >-->
+<!--          {{ $t("ReflectPlugin.ReflectTab.footerLinkHelpReflect") }}-->
+<!--        </a>-->
+<!--        <span class="reflect__footer__text">-->
+<!--          {{ $t("ReflectPlugin.ReflectTab.footerText") }}-->
+<!--        </span>-->
+<!--      </div>-->
     </div>
     <div v-if="loading" class="loading">
       <BIMDataLoading message="Transfert des informations"/>
@@ -166,6 +165,8 @@ export default {
   },
   created() {
     console.log("=====CREATED=====", this.connected);
+    this.apiBcfClient = new this.$viewer.api.apiClient.BcfApi();
+
 
   },
   mounted() {
@@ -209,7 +210,25 @@ export default {
         this.getProjects();
       }
     },
+    async clearDataBCF() {
+      // clear all bcf
+      try {
+        const topics = await this.apiBcfClient.getTopics(
+          this.$viewer.api.projectId
+        );
 
+        if (topics) {
+          topics.map(topic => {
+            this.apiBcfClient.deleteTopic(
+              topic.guid,
+              this.$viewer.api.projectId
+            );
+          });
+        }
+      } catch (e) {
+        console.log("erreur", e);
+      }
+    },
     getProjectName() {
       const loadedModels = this.$viewer.state.models;
       console.log("======GET PROJECT NAME=====", loadedModels);
@@ -253,28 +272,6 @@ export default {
       const info = this.getInfoIfcFile();
       const url = info.url;
       const filename = info.filename;
-
-      // async function createFile2(url,access_token, fn) {
-      //   let request = new XMLHttpRequest();
-      //   let file1;
-      //   request.open("GET", url, true);
-      //   request.responseType = 'text';
-      //   request.onload = function () {
-      //     file1 = new File([request.response], "filename.ifc", {
-      //       type: "application/ifc",
-      //     });
-      //     fn({file:file1, access_token:access_token});
-      //   };
-      //   request.send();
-      // }
-      // const rere = await createFile2(url,this.access_token, function (data) {
-      //   const formData = new FormData();
-      //   formData.append("file", data.file);
-      //   func.addIfc(formData, id_current_project,data.access_token);
-      //   return "fde";
-      // }).then(res => {
-      //   console.log("res:", res);
-      // });
 
       const ifc_bimdata = await this.loadIfcBimData(url, filename);
       const formData = new FormData();
@@ -494,10 +491,10 @@ export default {
 </script>
 
 <style scoped lang="scss">
-@import "~@bimdata/design-system/dist/css/design-system.css";
-@import "~@bimdata/design-system/dist/scss/_BIMDataTransitions.scss";
-@import "~@bimdata/design-system/dist/scss/BIMDataUtilities.scss";
-@import "~@bimdata/design-system/dist/scss/mixins/font-size.scss";
+@import "@bimdata/design-system/dist/css/design-system.css";
+@import "@bimdata/design-system/dist/scss/_BIMDataTransitions.scss";
+@import "@bimdata/design-system/dist/scss/BIMDataUtilities.scss";
+@import "@bimdata/design-system/dist/scss/mixins/font-size.scss";
 
 .reflect {
   display: block;
@@ -507,7 +504,7 @@ export default {
 
   &__body {
     display: block;
-    height: 70vh;
+    height: 75vh;
 
     & > :first-child {
       height: 100%;
@@ -515,7 +512,7 @@ export default {
   }
 
   &__footer {
-    height: 5vh;
+    height: 10vh;
     display: flex;
     flex-wrap: wrap;
     border-top: 1px solid var(--color-tertiary);

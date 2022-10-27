@@ -99,18 +99,18 @@
       </div>
     </BIMDataResponsiveGrid>
 
-    <div class="button" id="my_centered_buttons">
+    <div class="button" id="my_centered_buttons" v-show="!modeAdmin">
       <BIMDataButton
         icon
         @click="handleClickPackage"
         color="secondary"
         outline
-        fill
         size="xs"
         class="m-6 m-r-18"
+        :disabled="loading"
       >
         <BIMDataIcon size="xs" name="chevron" margin="0 2px 0 0" />
-        <span>Lancement RIVP</span>
+        <span>Lancement cahier des charges</span>
       </BIMDataButton>
       <BIMDataButton
         icon
@@ -121,47 +121,93 @@
         class="m-6 m-r-18"
       >
         <BIMDataIcon name="reset" size="xs" margin="0 2px 0 0" />
-        <span>Etat initial</span>
+        <span>Effacer</span>
       </BIMDataButton>
     </div>
+
     <BIMDataTable
-      @row-selected="onObjectSelected"
-      @row-unselected="onObjectDeSelected"
-      @all-selected="onObjectsSelected"
-      @all-unselected="onObjectsDeSelected"
-      :columns="columnsData"
-      :rows="rowsData"
+      :columns="columnsValidationGenerale"
+      :rows="rowsValidationGenerale"
       :rowHeight="20"
-      :tableWidth="100"
       :selectable="false"
       :paginated="true"
-      :perPage="12"
-      placeholder="Vide"
-      v-show="showing_table && !loading"
+      :perPage="20"
+      placeholder="Aucune règles"
+      v-show="showing_table_ValidationGenerale && !loading"
       style="overflow: auto; font-size: 0.7rem"
       class="m-t-12 bimdata-table__container"
     >
-      <!--    <template #cell-rule="{ row }">-->
-      <!--      <ViewLinkCell :rule="row" />-->
-      <!--    </template>-->
+      <template #cell-validation_finale="{ row }">
+        <div class="cell_valid" v-if="row.validation_finale === '100.0%'">
+          <span>{{ row.validation_finale }}</span>
+        </div>
+        <div class="cell_novalid" v-else>
+          <span>{{ row.validation_finale }}</span>
+        </div>
+      </template>
       <!--      <template v-else #cell-globalid="{ row }">-->
       <!--        <ViewLinkCell :rule="rule" />-->
       <!--      </template>-->
     </BIMDataTable>
-    <BIMDataButton
-      v-show="showing_table && !loading"
-      icon
-      @click="handleXLSDownload"
-      color="primary"
-      fill
-      rounded
-      size="xxs"
-      class="m-t-6 bimdata-btn__fill bimdata-btn__fill--primary bimdata-btn__radius"
+    <BIMDataTable
+      :columns="columnsResultData"
+      :rows="rowsResultData"
+      :rowHeight="20"
+      :selectable="true"
+      @row-selected="onObjectSelected"
+      @row-unselected="onObjectDeSelected"
+      @all-selected="onObjectsSelected"
+      @all-unselected="onObjectsDeSelected"
+      :paginated="true"
+      :perPage="20"
+      placeholder="Aucune règles => (Veuillez appuyer sur le bouton Lancement cahier des charges)"
+      v-show="!showing_table_ValidationGenerale && !loading"
+      style="overflow: auto; font-size: 0.7rem"
+      class="m-t-12 bimdata-table__container"
     >
-      <BIMDataIcon name="export" fill size="xxs" />
-    </BIMDataButton>
+    </BIMDataTable>
+
+    <div v-show="showing_table_ValidationGenerale && !loading">
+      <span>Exporter le tableau complet au format Excel :</span>
+      <BIMDataButton
+        v-show="showing_table_ValidationGenerale && !loading"
+        icon
+        @click="handleXLSDownload"
+        color="primary"
+        fill
+        rounded
+        size="xxs"
+        class="m-t-6 bimdata-btn__fill bimdata-btn__fill--primary bimdata-btn__radius"
+      >
+        <BIMDataIcon name="export" fill size="xxs" />
+      </BIMDataButton>
+      <span>Exporter le BCF au format xml:</span>
+      <BIMDataButton
+        v-show="showing_table_ValidationGenerale && !loading"
+        icon
+        @click="handleBCFDownload"
+        color="primary"
+        fill
+        rounded
+        size="xxs"
+        class="m-t-6 bimdata-btn__fill bimdata-btn__fill--primary bimdata-btn__radius"
+      >
+        <BIMDataIcon name="bcf" fill size="xxs" />
+      </BIMDataButton>
+    </div>
+
+    <!--    <div v-show="loading" class="loading">-->
+    <!--      <BIMDataBigSpinner size="xs" message="Calculate ..." />-->
+    <!--    </div>-->
     <div v-show="loading" class="loading">
-      <BIMDataBigSpinner size="xs" message="Calculate ..." />
+      <BIMDataLoading
+        subMessage="Transfert des informations de TIPEE vers BIMData"
+        message="Calcul ..."
+      >
+        <template #toto>
+          <BIMDataIcon name="doubleChevron" fill color="default" size="xxs" />
+        </template>
+      </BIMDataLoading>
     </div>
   </div>
 </template>
@@ -174,8 +220,7 @@ import {
   BIMDataIcon,
   BIMDataSearchAutocomplete,
   BIMDataTable,
-  BIMDataSpinner,
-  BIMDataBigSpinner,
+  BIMDataLoading,
   // BIMDataDropdownList,
   // BIMDataCheckbox,
   BIMDataSelect,
@@ -210,7 +255,7 @@ export default {
     BIMDataSearch,
     BIMDataTable,
     BIMDataSelect,
-    BIMDataBigSpinner,
+    BIMDataLoading,
     // BIMDataModelPreview
     // BIMDataDropdownList,
     // BIMDataCheckbox,
@@ -237,22 +282,29 @@ export default {
   data() {
     return {
       uuids: [],
-      showing_table: false,
+      showing_table_ValidationGenerale: false,
+      showing_table_Result: false,
       reflectElementUuids: null,
+      reflectElementUuidsNotValid: null,
       result_run_rule: null,
       color_white: "#FFFFFF",
       color_black: "#000000",
       color_tipee: "#A4C407",
+      color_not_valid: "#C40707FF",
       viewer3dPlugin: null,
       viewer2dPlugin: null,
+      viewerBCFPlugin: null,
+      apiBcfClient: null,
       queryString: '.IfcSpace[Name *= "CH1"]',
       shareUrl: null,
       activeAddRule: null,
       isLoading: false,
       loading: false,
       selectedItem: null,
-      rowsData: [],
-      columnsData: [],
+      rowsResultData: [],
+      columnsResultData: [],
+      rowsValidationGenerale: [],
+      columnsValidationGenerale: [],
       properties: [],
       selectionProperties: ["BaseQuantities.*"],
       arrayProperties: [],
@@ -269,12 +321,15 @@ export default {
   created() {
     // this.loading = true;
     this.viewer3dPlugin = this.$viewer.globalContext.getPlugins("viewer3d")[0];
-    // const viewer2dPlugin = this.$viewer.localContext.getPlugin("viewer2d");
+    // const viewer2dPlugin = this.$viewer.localContext.getPlugin("viewer2d");    this.viewer3dPlugin = this.$viewer.globalContext.getPlugins("viewer3d")[0];
+    this.viewerBCFPlugin =
+      this.$viewer.globalContext.getPlugins("bcfManager")[0];
+    this.apiBcfClient = new this.$viewer.api.apiClient.BcfApi();
   },
   mounted() {
     console.log("=======RULES MOUNTED======");
     this.arrayTypesIfc = this.getTypeOfUuids();
-    console.log("=======RULES IFC TYPES======", this.arrayTypesIfc);
+    // console.log("=======RULES IFC TYPES======", this.arrayTypesIfc);
 
     console.log("=======RULES MOUNTED======");
   },
@@ -316,7 +371,6 @@ export default {
       try {
         const lark_object = parser.parse(item, null, ignore_errors);
         const class_selector = this.recurse_lark(lark_object);
-        console.log(class_selector);
       } catch (error) {
         console.error(error);
         // expected output: ReferenceError: nonExistentFunction is not defined
@@ -329,7 +383,6 @@ export default {
       console.log(lark_object);
       let class_selector;
       if (lark_object.data === "class_selector") {
-        console.log(lark_object.children[0].value);
         class_selector = lark_object.children[0].value;
         this.handleProperties(class_selector);
 
@@ -343,8 +396,8 @@ export default {
       const arrayTypes = _.uniq(
         this.$viewer.state.objects.map(object => this.toIfcType(object.type))
       );
-      console.log("=======RULES IFC TYPES====== ", this.$viewer.state.objects);
-      console.log("=======RULES IFC TYPES====== ", arrayTypes);
+      // console.log("=======RULES IFC TYPES====== ", this.$viewer.state.objects);
+      // console.log("=======RULES IFC TYPES====== ", arrayTypes);
 
       return arrayTypes.map((element, index) => {
         const obj3 = {};
@@ -362,16 +415,46 @@ export default {
       });
     },
     onItemClick($event) {
-      console.log($event);
       this.selectionProperties = [];
       this.handleProperties($event.title);
     },
+    async downloadBlobAs(name, blob) {
+      const { URL } = window;
+      const link = document.createElement("a");
+      link.rel = "noopener";
+      link.download = name;
+      // Create object url from blob
+      link.href = URL.createObjectURL(blob);
+
+      // Trigger "Save As" dialog
+      setTimeout(() => link.click(), 0);
+      // Revoke object url after 40 seconds
+      setTimeout(() => URL.revokeObjectURL(link.href), 4e4);
+    },
+    async handleBCFDownload() {
+      this.loading = true;
+      const response = await this.apiBcfClient.downloadBcfExport(
+        this.$viewer.api.projectId
+      );
+
+      if (response) {
+        // await this.downloadBlobAs("BCF.bcfzip", response);
+        const fileName =
+          this.fileNameExport +
+          new Date().getHours() +
+          ":" +
+          new Date().getMinutes() +
+          ":" +
+          new Date().getSeconds() +
+          ".bcfzip";
+        fileSaver.saveAs(response, "BCF_" +fileName );
+      }
+
+      this.loading = false;
+    },
     async handleXLSDownload() {
       this.loading = true;
-
-      console.log("columnsData", this.columnsData);
-      console.log("rowsData", this.rowsData);
-
+      const sizeColumns = this.columnsResultData.length;
       let workbook = new ExcelJS.Workbook();
       workbook.creator = "Reflect";
       workbook.lastModifiedBy = "Reflect";
@@ -379,12 +462,10 @@ export default {
       workbook.modified = new Date();
       workbook.lastPrinted = new Date();
       workbook.calcProperties.fullCalcOnLoad = true;
-      console.log("this.rowsData", this.rowsData);
 
       const uniqueRule = [
-        ...new Set(this.rowsData.map(item => item.code_regle)),
+        ...new Set(this.rowsResultData.map(item => item.code_regle)),
       ];
-      console.log("uniqueRule", uniqueRule);
 
       let ws = workbook.addWorksheet("REFLECT", {
         headerFooter: { firstHeader: "REFLECT", firstFooter: "REFLECT EXPORT" },
@@ -399,8 +480,6 @@ export default {
         );
         return res;
       };
-
-      console.log("iconTipee", iconTipee);
 
       // add image to workbook by buffer
       const imageTipee = workbook.addImage({
@@ -422,20 +501,20 @@ export default {
       // insert an image over A1:D6
       ws.addImage(imageRivp, "A1:B2");
       // ws.addImage(imageTipee, "M1:Q6");
-      ws.addImage(imageReflect, "G1:H2");
+      ws.addImage(imageReflect, "I1:K2");
 
-      ws.mergeCells("C1:G1");
-      const C1 = ws.getCell("C1");
-      C1.value =
+      ws.mergeCells("C2:G2");
+      const C2 = ws.getCell("C2");
+      C2.value =
         "CONTRÔLE DES MAQUETTES NUMERIQUES SUR LA BASE DU CAHIER DE PRECONISATIONS";
-      C1.style.font = {
+      C2.style.font = {
         bold: true,
         color: { argb: "000000" },
         family: 2,
         size: 18,
         name: "Calibri Light (En-têtes)",
       };
-      C1.alignment = {
+      C2.alignment = {
         vertical: "middle",
         horizontal: "center",
         wrapText: true,
@@ -494,7 +573,7 @@ export default {
             width: 40,
           },
         ],
-        rows: this.validationGenerale.map(item => {
+        rows: this.rowsValidationGenerale.map(item => {
           return Object.values(item);
         }),
       });
@@ -509,11 +588,27 @@ export default {
           },
         });
 
+        // adjust properties afterwards (not supported by worksheet-writer)
+        ws.properties.outlineLevelCol = 2;
+        ws.properties.defaultRowHeight = 15;
+
         // Set the left footer to 18px and italicize. Result: "Page 2 of 16"
         ws.headerFooter.oddFooter = "&LPage &P of &N";
 
         // Set the left, center, and right text of the footer. Result: “Exceljs” in the footer left. “demo.xlsx” in the footer center. “Page 2” in the footer right
         ws.headerFooter.oddFooter = "&LREFLECT&C&F&RPage &P";
+
+        // ws.autoFilter = `A2:B${sizeColumns}`;
+
+        // Set an auto filter from D3 to the
+        // cell in row 7 and column 5
+        ws.autoFilter = {
+          from: "A1",
+          to: {
+            row: 1,
+            column: sizeColumns,
+          },
+        };
 
         // add a checkerboard pattern to A1:E7 based on row + col being even or odd
         ws.addConditionalFormatting({
@@ -542,15 +637,15 @@ export default {
             //      cfvo: ['true','false'],
             //      style: {fill: {type: 'pattern', pattern: 'solid', bgColor: {argb: 'FF00FF00'}}},
             // },
-            {
-              type: "iconSet",
-              iconSet: "3TrafficLights",
-              cfvo: [
-                { type: "percent", value: 0 },
-                { type: "num", value: "COLUMN()" },
-                // { type: 'num', value: 'ROW()' },
-              ],
-            },
+            // {
+            //   type: "iconSet",
+            //   iconSet: "3TrafficLights",
+            //   cfvo: [
+            //     { type: "percent", value: 0 },
+            //     { type: "num", value: "COLUMN()" },
+            //     // { type: 'num', value: 'ROW()' },
+            //   ],
+            // },
             // {
             //      type: 'iconSet',
             //      iconSet: '5Arrows',
@@ -604,10 +699,8 @@ export default {
         return { name: item, ws: ws };
       });
 
-      console.log("uniqueWs", uniqueWs);
-
       const columnsFormat = [];
-      const toDownload = this.columnsData.map(r => {
+      const toDownload = this.columnsResultData.map(r => {
         const exelCol = {
           header: r.label,
           width: Math.max(20, r.label.length + 2),
@@ -622,17 +715,13 @@ export default {
         };
       });
 
-      console.log("toDownload", toDownload);
-
       const rows = [];
       // Sanitize data that is impossible to serialize
-      this.rowsData.forEach((r, index) => {
+      this.rowsResultData.forEach((r, index) => {
         const row = [];
         // row["id"]=index;
 
         for (const [k, v] of Object.entries(r)) {
-          console.log("k, v", k, v);
-
           // const cData = toDownload[i];
           // if (cData.formatter === null) {
           //   return;
@@ -658,7 +747,8 @@ export default {
         rows.push(row);
       });
 
-      console.log("rows", rows);
+      // Remove the first Element from an Array
+      // columnsFormat.shift();
 
       uniqueWs.forEach(unique_worksheet => {
         autofitColumns(unique_worksheet.ws);
@@ -703,12 +793,13 @@ export default {
       });
 
       rows.forEach((row, index) => {
-        const ws_current = uniqueWs.find(x => x.name === row[3]);
+        const ws_current = uniqueWs.find(x => x.name === row[2]);
         // const ws_current = uniqueWs.find(x => x.name === row["code_regle"]);
+        // // Remove the first Element from an Array
+        // row.shift();
+        // console.log("remove_fist_elem", row )
         ws_current.ws.addRow(row);
-
       });
-
 
       // workbook.xlsx.writeBuffer().then((b) => FileSaver.saveAs(new Blob([b], { type: 'application/octet-stream' }), 'Report.xlsx'));
       const buffer = await workbook.xlsx.writeBuffer();
@@ -789,22 +880,47 @@ export default {
     async clear() {
       this.queryString = "";
     },
-    clearData() {
+    async clearData() {
+      console.log("clearData", this.$viewer.api.projectId);
       this.result_run_rule = [];
-      this.rowsData = [];
-      this.columnsData = [];
+      this.rowsResultData = [];
+      this.columnsResultData = [];
+      this.rowsValidationGenerale = [];
+      this.columnsValidationGenerale = [];
+      // clear all bcf
+      try {
+        const topics = await this.apiBcfClient.getTopics(
+          this.$viewer.api.projectId
+        );
+        // const fullTopics = await this.apiBcfClient.getFullTopics(
+        //   this.$viewer.api.projectId
+        // );
+        console.log("COCUCO");
+
+        if (topics) {
+          topics.map(topic => {
+            this.apiBcfClient.deleteTopic(
+              topic.guid,
+              this.$viewer.api.projectId
+            );
+          });
+        }
+      } catch (e) {
+        console.log("erreur", e);
+      }
     },
     async clearViewer() {
-      this.rowsData = [];
-      this.columnsData = [];
+      await this.clearData();
 
       if (this.difference()) {
         this.$viewer.state.showObjectsByUuids(this.difference());
       }
       if (this.reflectElementUuids) {
-        this.$viewer.state.deselectObjectsByUuids(this.reflectElementUuids);
+        this.$viewer.state.deselectObjectsByUuids(
+          this.reflectElementUuidsNotValid
+        );
         this.$viewer.state.colorizeObjectsByUuids(
-          this.reflectElementUuids,
+          this.reflectElementUuidsNotValid,
           null
         );
       }
@@ -816,7 +932,7 @@ export default {
     },
 
     headers() {
-      console.log("======HEADERS======", state);
+      // console.log("======HEADERS======", state);
       return {
         Authorization: "Bearer " + state.accessToken,
         "Content-Type": "application/json",
@@ -825,11 +941,11 @@ export default {
     },
 
     onObjectsSelected(objects) {
-      console.log("Do something: ", objects);
-      this.$viewer.gobalContext.hub.on(
-        "row-selected",
+      console.log("Do something all-selected: ", objects);
+      this.$viewer.globalContext.hub.on(
+        "all-selected",
         ({ objects }) => {
-          console.log("Do all-selected\t: ", objects);
+          console.log("Do all-selected\ all-selected: ", objects);
         },
         {
           getLastEvent: true, // immediately trigger the callback with the last loaded ifcs if they exists.
@@ -842,9 +958,12 @@ export default {
     },
 
     onObjectsDeSelected(objects) {
-      const objects_uuid = objects.map(element => element.GlobalId);
-      this.$viewer.state.unhighlightObjectsByUuids(objects_uuid);
-      this.$viewer.state.deselectObjectsByUuids(objects_uuid);
+      console.log("Do something onObjectsDeSelected : ", objects);
+      if (objects) {
+        const objects_uuid = objects.map(element => element.guid);
+        this.$viewer.state.unhighlightObjectsByUuids(objects_uuid);
+        this.$viewer.state.deselectObjectsByUuids(objects_uuid);
+      }
     },
 
     onObjectSelected(object) {
@@ -893,24 +1012,25 @@ export default {
 
     initTableResults(options) {
       if (options.reset) {
-        this.rowsData = [];
-        this.validationGenerale = [];
-
-        this.columnsData = [];
+        this.rowsResultData = [];
+        this.rowsValidationGenerale = [];
+        this.columnsValidationGenerale = [];
+        this.columnsResultData = [];
       }
+      console.log(this.result_run_rule);
 
-      this.rowsData = this.result_run_rule
+      this.rowsResultData = this.result_run_rule
         .map(rule => {
-          const name_rule = rule.rule.name || "Query";
+          // const name_rule = rule.rule.name || "Query";
           return rule.result.map(elem => {
-            return { Rule: name_rule, ...elem };
+            return { ...elem };
           });
         })
         .reduce(function (accumulateur, valeurCourante) {
           return accumulateur.concat(valeurCourante);
         });
 
-      this.validationGenerale = this.result_run_rule
+      this.rowsValidationGenerale = this.result_run_rule
         .map(rule => {
           return rule.validation_generale.map(elem => {
             return { ...elem };
@@ -920,7 +1040,7 @@ export default {
           return accumulateur.concat(valeurCourante);
         });
 
-      console.log("validationGenerale", this.validationGenerale);
+      // console.log("rowsValidationGenerale", this.rowsValidationGenerale);
 
       function remove_duplicates_es6(arr) {
         let s = new Set(arr);
@@ -928,30 +1048,113 @@ export default {
         return Array.from(it);
       }
 
-      let keys = [];
+      let keysResultData = [];
+      let keysValidationGenerale = [];
 
-      if (this.rowsData.length !== 0) {
-        this.rowsData.map(elem => {
+      if (this.rowsResultData.length !== 0) {
+        this.rowsResultData.map(elem => {
           return Object.keys(elem).forEach(item => {
-            keys.push(item);
+            keysResultData.push(item);
             return item;
           });
         });
 
-        const uniqueKeys = remove_duplicates_es6(keys);
+        const uniqueKeysResultData = remove_duplicates_es6(keysResultData);
 
-        uniqueKeys.forEach(item => {
+        uniqueKeysResultData.forEach(item => {
           const innerObj = {
             id: item,
             label: item,
             // width: "20px",
             align: "center",
           };
-          this.columnsData.push(innerObj);
+          this.columnsResultData.push(innerObj);
         });
+        this.showing_table_Result = true;
       }
 
-      this.showing_table = true;
+      if (this.rowsValidationGenerale.length !== 0) {
+        this.rowsValidationGenerale.map(elem => {
+          return Object.keys(elem).forEach(item => {
+            keysValidationGenerale.push(item);
+            return item;
+          });
+        });
+
+        const uniqueKeysValidationGenerale = remove_duplicates_es6(
+          keysValidationGenerale
+        );
+
+        uniqueKeysValidationGenerale.forEach(item => {
+          const innerObj = {
+            id: item,
+            label: item,
+            // width: "20px",
+            align: "center",
+          };
+          this.columnsValidationGenerale.push(innerObj);
+        });
+        this.showing_table_ValidationGenerale = true;
+      }
+    },
+
+    async createBCF(row) {
+      const title = `${row.code_regle} `;
+      let description = `Please validate ${row.title} ${row.code_regle}`;
+      const type = `Reflect RIVP`;
+      const data = {
+        title,
+        description,
+        topic_type: type,
+        topic_status: "Opened",
+        labels: ["Reflect"],
+        priority: "10",
+        assigned_to: "RIVP",
+        viewpoints: [
+          {
+            components: {
+              coloring: [
+                {
+                  color: "#193f9e",
+                  components: [
+                    {
+                      ifc_guid: row.guid,
+                      originating_system: "ReflectPlugin",
+                    },
+                  ],
+                },
+              ],
+              visibility: {
+                default_visibility: true,
+                exceptions: [
+                  {
+                    ifc_guid: row.guid,
+                    originating_system: "ReflectPlugin",
+                  },
+                ],
+                view_setup_hints: {
+                  spaces_visible: false,
+                  space_boundaries_visible: false,
+                  openings_visible: false,
+                },
+              },
+              selection: [
+                {
+                  ifc_guid: row.guid,
+                  originating_system: "ReflectPlugin",
+                },
+              ],
+            },
+          },
+        ],
+      };
+
+      await this.apiBcfClient.createFullTopic(this.$viewer.api.projectId, data);
+
+      this.$viewer.localContext.hub.emit("alert", {
+        type: "success",
+        message: "BCF created",
+      });
     },
 
     handleClick() {
@@ -976,10 +1179,10 @@ export default {
           this.fetchData(rule_type, this.queryString).then(async res => {
             this.result_run_rule = await this.runQuery(res.queryBuilder);
             if (this.result_run_rule.length > 0) {
-              console.log(
-                "=======RUN QUERY RESULT RUN======",
-                this.result_run_rule
-              );
+              // console.log(
+              //   "=======RUN QUERY RESULT RUN======",
+              //   this.result_run_rule
+              // );
               // console.log("=======RUN UUIDS======", this.getUuids());
               // console.log("=======RUN DIFF======", this.difference());
               this.reflectElementUuids = [];
@@ -1002,7 +1205,7 @@ export default {
                 });
               });
 
-              console.log("=======RUN QUERY======", this.reflectElementUuids);
+              // console.log("=======RUN QUERY======", this.reflectElementUuids);
 
               this.initTableResults({ reset: false });
 
@@ -1015,10 +1218,10 @@ export default {
               // this.$viewer.state.highlightObjectsByUuids(
               //   this.difference()
               // );
-              this.$viewer.state.colorizeObjectsByUuids(
-                this.reflectElementUuids,
-                this.color_tipee
-              );
+              // this.$viewer.state.colorizeObjectsByUuids(
+              //   this.reflectElementUuids,
+              //   this.color_tipee
+              // );
               // this.$viewer.state.selectObjectsByUuids(this.reflectElementUuids);
               // this.$viewer.state.hub.on(
               //   "objects-hidden",
@@ -1038,13 +1241,17 @@ export default {
     async handleClickPackage() {
       this.loading = true;
 
-      await this.clearViewer();
+      if (state.connected) {
+        await this.clearViewer();
+      }
+
       this.result_run_rule = await this.runPackage();
       if (this.result_run_rule.length > 0) {
-        console.log("=======RUN QUERY RESULT RUN======", this.result_run_rule);
+        // console.log("=======RUN QUERY RESULT RUN======", this.result_run_rule);
         // console.log("=======RUN UUIDS======", this.getUuids());
         // console.log("=======RUN DIFF======", this.difference());
         this.reflectElementUuids = [];
+        this.reflectElementUuidsNotValid = [];
         this.result_run_rule.map(elem => {
           // search guid in object
           let filtered_keys = function (obj, filter) {
@@ -1058,13 +1265,20 @@ export default {
           };
 
           elem.result.map(result => {
+            if (result.guid && result.validation_finale === false) {
+              this.createBCF(result);
+              this.reflectElementUuidsNotValid.push(
+                filtered_keys(result, /guid|GlobalId|guids/)[0]
+              );
+            }
+
             this.reflectElementUuids.push(
               filtered_keys(result, /guid|GlobalId|guids/)[0]
             );
           });
         });
 
-        console.log("=======RUN QUERY======", this.reflectElementUuids);
+        // console.log("=======RUN QUERY======", this.reflectElementUuids);
 
         this.initTableResults({ reset: false });
 
@@ -1077,10 +1291,12 @@ export default {
         // this.$viewer.state.highlightObjectsByUuids(
         //   this.difference()
         // );
+
         this.$viewer.state.colorizeObjectsByUuids(
-          this.reflectElementUuids,
-          this.color_tipee
+          this.reflectElementUuidsNotValid,
+          this.color_not_valid
         );
+
         // this.$viewer.state.selectObjectsByUuids(this.reflectElementUuids);
         // this.$viewer.state.hub.on(
         //   "objects-hidden",
@@ -1108,7 +1324,7 @@ export default {
         .catch(error => console.log("====ERROR RUN QUERY====", error));
     },
     async runQuery(queryBuilder) {
-      console.log("=======RUN QUERY======", queryBuilder);
+      // console.log("=======RUN QUERY======", queryBuilder);
       return await fetch(
         `${this.reflect_url}/reflect/project/${this.projectId}/rule`,
         {
@@ -1126,7 +1342,7 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-.button {
+#my_centered_buttons {
   position: relative;
   text-align: center;
   display: flex;
@@ -1135,6 +1351,14 @@ export default {
 .loading {
   display: flex;
   justify-content: center;
+}
+.cell_valid {
+  background-color: #42b983;
+  color: var(--color-white);
+}
+.cell_novalid {
+  background-color: #db0f0fff;
+  color: var(--color-white);
 }
 .rule-cards {
   padding: 0;
