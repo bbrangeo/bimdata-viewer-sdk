@@ -47,12 +47,9 @@
 </template>
 
 <script>
-import BIMDataCard from "@bimdata/design-system/dist/js/BIMDataComponents/BIMDataCard.js";
-import BIMDataLoading from "@bimdata/design-system/dist/js/BIMDataComponents/BIMDataLoading.js";
-// import BIMDataButton from "@bimdata/design-system/dist/js/BIMDataComponents/BIMDataButton";
+import { BIMDataCard, BIMDataLoading } from "@bimdata/design-system";
 
 import AddProject from "./reflect_tabs/AddProjectReflect.vue";
-import getClient from "@/api/api";
 import { mapGetters } from "vuex";
 
 export default {
@@ -91,14 +88,6 @@ export default {
   },
   computed: {
     ...mapGetters(["oidcAccessToken"]),
-    ifcApi() {
-      const apiClient = getClient({
-        accessToken: this.oidcAccessToken,
-        apiUrl: process.env.VUE_APP_BIMDATA_API_URL,
-      });
-      return new apiClient.IfcApi();
-    },
-
     headers(token) {
       return {
         Authorization: "Bearer " + token,

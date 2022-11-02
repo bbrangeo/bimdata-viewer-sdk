@@ -67,8 +67,8 @@ import {
   BIMDataButton,
   BIMDataInput,
   BIMDataResponsiveGrid,
-} from "@bimdata/design-system/components.js";
-import state from "@/plugins/reflect/src/state";
+} from "@bimdata/design-system";
+import state from "./state";
 
 export default {
   name: "ConnectPlatformReflect",
@@ -82,8 +82,8 @@ export default {
       title: "CONNEXION",
       connected: false,
       access_token: this.oauth,
-      password: "",
-      username: "",
+      password: "test_plugin",
+      username: "test_plugin",
       publicity: [
         {
           img_src: require("../assets/reflect.png"),

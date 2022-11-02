@@ -123,8 +123,8 @@
 <script>
 import state from "./state";
 
-import ConnectPlatformReflect from "@/plugins/reflect/src/ConnectPlatformReflect";
-import Rules from "@/plugins/reflect/src/rules/Rules";
+import ConnectPlatformReflect from "./ConnectPlatformReflect";
+import Rules from "./rules/Rules";
 import {
   BIMDataButton,
   BIMDataIcon,
@@ -273,9 +273,11 @@ export default {
       const url = info.url;
       const filename = info.filename;
 
-      const ifc_bimdata = await this.loadIfcBimData(url, filename);
+      // const ifc_bimdata = await this.loadIfcBimData(url, filename);
       const formData = new FormData();
-      formData.append("file", ifc_bimdata);
+      formData.append("url", url);
+      formData.append("filename", filename);
+      // formData.append("file", ifc_bimdata);
       this.addIfc(formData, this.project_id);
     },
 
@@ -409,7 +411,7 @@ export default {
 
     addIfc(fd, id_project) {
       console.log("=====ADD IFC=====");
-      fetch(`${this.reflect_url}/reflect/project/${id_project}/add_ifc`, {
+      fetch(`${this.reflect_url}/reflect/project/${id_project}/add_ifc_bimdata`, {
         headers: {
           // "Content-Length": response.length,
           Authorization: "Bearer " + this.access_token,

@@ -14,7 +14,7 @@ export default {
   },
   i18n: {
     en: {
-      window_label: "Reflect is awesome!",
+      window_label: "Reflect",
       search: "ex: .IfcWall ==> voir aide ?",
       ReflectTab: {
         tab1: "Projects",
@@ -25,7 +25,7 @@ export default {
       },
     },
     fr: {
-      window_label: "Reflect est génial !",
+      window_label: "Reflect (Qualité des maquettes numérique IFC)",
       search: "ex: .IfcWall ==> voir aide ?",
       ReflectTab: {
         tab1: "Projects",
